@@ -4,7 +4,7 @@
 # todo
 
 ## M0 — bridge
-- [ ] Verify Teardown modding API external-I/O surface (HTTP? file I/O? registry?) against current docs
+- [x] Verify Teardown modding API external-I/O surface -> registry/savegame.xml at >=49 Hz (see docs/superpowers/research/2026-08-01-bridge-transport.md)
 - [ ] Lua mod skeleton: spawn-tagged tower level, state read, reward/success, Restart/SetRandomSeed reset
 - [ ] bridge.py with chosen transport + FakeBridge for host-side tests
 
