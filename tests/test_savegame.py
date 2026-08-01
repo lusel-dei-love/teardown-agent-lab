@@ -61,8 +61,22 @@ def test_parse_payload_rejects_block_count_mismatch():
 
 
 def test_parse_payload_rejects_wrong_field_count():
-    with pytest.raises(PayloadError, match="8 fields"):
+    with pytest.raises(PayloadError, match="8 or 9 fields"):
         parse_payload("1|2|3")
+
+
+def test_parse_payload_reads_camera_space_blocks():
+    payload = PAYLOAD + "|0.500,0.000,-2.000;0.600,0.000,-2.100"
+    state = parse_payload(payload)
+    assert len(state.blocks_local) == 2
+    # Camera space: +x right, -z forward, so the tower sits ahead and slightly right.
+    assert state.blocks_local[0] == pytest.approx((0.5, 0.0, -2.0))
+
+
+def test_parse_payload_without_camera_space_still_parses():
+    # An older mod build emits 8 fields; the host must not hard-fail on it.
+    state = parse_payload(PAYLOAD)
+    assert state.blocks_local == []
 
 
 def test_payload_contains_no_xml_metacharacters():

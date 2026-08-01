@@ -100,7 +100,13 @@ class TeardownTowerEnv(gym.Env):
 
     def _observe(self, state: GameState) -> np.ndarray:
         player = np.array(state.player_pos, dtype=np.float32)
-        blocks = np.array([b.pos for b in state.blocks], dtype=np.float32) - player
+        # Prefer camera-space block positions when the mod provides them: they are
+        # egocentric (+x right, -z forward), so a policy can act on them directly
+        # without knowing the engine's yaw convention. Fall back to world-relative.
+        if state.blocks_local:
+            blocks = np.array(state.blocks_local, dtype=np.float32)
+        else:
+            blocks = np.array([b.pos for b in state.blocks], dtype=np.float32) - player
         return np.concatenate(
             [player, np.array([state.yaw, state.pitch], dtype=np.float32), blocks.ravel()]
         ).astype(np.float32)

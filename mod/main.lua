@@ -130,16 +130,23 @@ local function publish_state()
 
 	local cur = {}
 	local spn = {}
+	local loc = {}
+	-- Camera space: +x right, +y up, -z forward. Emitting block positions in this frame
+	-- means the host never has to guess the engine's yaw convention, and gives any
+	-- policy an egocentric observation, which is what it can actually act on.
+	local cam = GetPlayerCameraTransform(0)
 	for idx = 0, N_BLOCKS - 1 do
 		local h = blocks[idx]
 		if h and spawns[idx] then
 			local t = GetBodyTransform(h)
 			cur[#cur + 1] = vec3(t.pos)
 			spn[#spn + 1] = vec3(spawns[idx])
+			loc[#loc + 1] = vec3(TransformToLocalPoint(cam, t.pos))
 		end
 	end
 	parts[#parts + 1] = table.concat(cur, ";")
 	parts[#parts + 1] = table.concat(spn, ";")
+	parts[#parts + 1] = table.concat(loc, ";")
 
 	SetString(STATE_KEY, table.concat(parts, "|"))
 end
@@ -176,6 +183,13 @@ function draw()
 	UiTranslate(40, 120)
 	UiColor(1, 1, 0)
 	UiFont("regular.ttf", 24)
-	UiText("agent-lab ep=" .. episode .. " blocks=" .. #blocks)
+	-- blocks is keyed 0..N-1, so '#' would under-report by one; count explicitly.
+	local live = 0
+	for idx = 0, N_BLOCKS - 1 do
+		if blocks[idx] then
+			live = live + 1
+		end
+	end
+	UiText("agent-lab ep=" .. episode .. " blocks=" .. live)
 	UiPop()
 end

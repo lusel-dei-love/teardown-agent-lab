@@ -6,13 +6,14 @@
 ## M0 — bridge
 - [x] Verify Teardown modding API external-I/O surface -> registry/savegame.xml at >=49 Hz (see docs/superpowers/research/2026-08-01-bridge-transport.md)
 - [x] Lua mod: 3x3 tagged tower via Spawn() voxbox XML, state via registry, reset via HasFile rising edge
-- [x] bridge.py transport + FakeBridge (savegame.py parser, RealBridge polling) -- live verification pending
+- [x] bridge.py transport + FakeBridge (savegame.py parser, RealBridge polling) -- verified live: 60 Hz reads + reset handshake
 
 ## M1 — env round-trip
 - [x] actuator.py (uinput backend; XTest proven inert) + window focus management
 - [x] capture.py (screenshots + ffmpeg episode recording)
-- [x] env.py Gymnasium env against FakeBridge (unit-tested); real-game pass pending
-- [ ] scripted policy topples tower end-to-end (validates reward + success)
+- [x] env.py Gymnasium env against FakeBridge (unit-tested) and against the live game
+- [x] scripted policy topples tower end-to-end -- success=True in 23.6s, 6/9 blocks displaced
+- [ ] record a real episode trace as a game-free referee regression fixture
 
 ## M2 — training + eval
 - [ ] train_sac.py (SB3) with staged checkpoints (0/25/50/100%)

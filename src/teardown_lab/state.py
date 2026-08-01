@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 Vec3 = tuple[float, float, float]
 
@@ -43,6 +43,10 @@ class GameState:
     # Monotonic tick counter from the mod. Lets a reader tell a fresh frame from a
     # re-read of the same one, since the transport is a polled file.
     seq: int = 0
+    # Block positions in camera space (+x right, +y up, -z forward), one per block.
+    # This is the egocentric view a policy acts on; world positions above are what the
+    # referee measures displacement against.
+    blocks_local: list[Vec3] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
