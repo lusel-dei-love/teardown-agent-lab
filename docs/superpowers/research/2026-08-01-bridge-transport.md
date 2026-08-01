@@ -14,9 +14,47 @@ file. **Measured >= 49 Hz** of distinct value updates (that was the *polling* ce
 a 20 ms sample interval, so the true rate is at least that — it tracks frame rate).
 The task needs 10 Hz, so this has ~5x headroom.
 
-**Commands in (host -> game): synthetic key events via uinput**, read mod-side with
-`InputPressed`. No file or registry channel is needed for the small command vocabulary
-(reset, seed selection); the actuator already injects input for the policy anyway.
+**Commands in (host -> game): file existence, polled mod-side with `HasFile("MOD/...")`.**
+**Verified end-to-end:** the host created `<mod dir>/cmd.txt`, the mod's `HasFile` flipped
+false -> true within a frame, and back to false when the file was removed. This beats
+injected hotkeys for control messages: no window focus needed, no collision with gameplay
+keybinds, and the host owns the state directly. (uinput injection is still how *actions*
+reach the game — see plan Task 5.)
+
+## CRITICAL: the payload must not contain XML metacharacters
+
+The engine serializes the registry with **rapidxml and performs no entity escaping**.
+A `"`, `<`, `>` or `&` inside a `SetString` value lands raw in `savegame.xml` and
+corrupts the document for any host-side parser. **JSON payloads are therefore unusable.**
+
+Use a delimited numeric format restricted to `0-9 . - | , ;` (or base64) — v1 uses:
+
+```
+seq|t|episode|seed|px,py,pz|yaw,pitch|b0x,b0y,b0z;b1x,b1y,b1z;...
+```
+
+Other engine facts that constrain the design (from the shipped `script_defs.lua` and the
+binary, not the public docs — which are stale and list 608 of the 751 real functions):
+
+- The scripting VM is **Luau, not Lua 5.1**: no `ffi`, no `io`, no `os`. `dofile` exists.
+- The registry flush is **dirty-driven and coalesced to once per frame** (~59 Hz when a
+  mod writes every tick, and *zero* writes when nothing changes), via a
+  `savegame.xml.tmp` + atomic rename. So: poll `st_mtime_ns` and skip parsing when
+  unchanged, and expect the inode to change under you.
+- The whole `savegame` tree is re-serialized every frame — keep the blob compact.
+- Input action names come from `data/input_settings.xml` (`interact usetool jump crouch
+  grab lmb rmb scroll_up scroll_down ...`); `InputPressed(input, playerId)` takes a
+  player id in 2.0 (0 = local).
+
+## Prior art (surveyed, none is an RL environment)
+
+No public Teardown gym/RL env exists. Relevant mechanisms if we ever outgrow the registry:
+`snibk/teardown-http` uses this exact registry-out + file-in pattern (validating the
+design); `Thomasims/TeardownUMF` is the most-maintained pure-Lua framework; `TTFH/TDLL`
+is a proxy-DLL that adds real UDP sockets and voxel-matrix reads (escape hatch only —
+it forfeits the "vanilla, survives game updates" property). DeepMind's SIMA used **no**
+special build or API: keyboard and mouse on a streamed virtual display, same as us.
+`SetClipboardText`/`GetClipboardText` are real but undocumented — a lower-latency backup.
 
 ## Exact paths and shapes
 

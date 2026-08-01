@@ -1,0 +1,4 @@
+name = Teardown Agent Lab
+author = teardown-agent-lab
+description = RL harness: spawns a tagged block tower, streams world state to the host via the registry, and accepts reset commands via file existence.
+tags = Gameplay

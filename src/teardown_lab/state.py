@@ -40,6 +40,9 @@ class GameState:
     yaw: float
     pitch: float
     blocks: list[BlockState]
+    # Monotonic tick counter from the mod. Lets a reader tell a fresh frame from a
+    # re-read of the same one, since the transport is a polled file.
+    seq: int = 0
 
     def to_dict(self) -> dict:
         return {
@@ -50,6 +53,7 @@ class GameState:
             "yaw": self.yaw,
             "pitch": self.pitch,
             "blocks": [b.to_dict() for b in self.blocks],
+            "seq": self.seq,
         }
 
     def to_json(self) -> str:
@@ -65,6 +69,7 @@ class GameState:
             yaw=float(payload["yaw"]),
             pitch=float(payload["pitch"]),
             blocks=[BlockState.from_dict(b) for b in payload["blocks"]],
+            seq=int(payload.get("seq", 0)),
         )
 
     @classmethod
