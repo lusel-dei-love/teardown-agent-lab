@@ -1,0 +1,9 @@
+# ABOUTME: Example env config for teardown-agent-lab. Copy to .envrc (gitignored),
+# ABOUTME: fill values, then `direnv allow`. Deploy targets must NEVER be committed.
+
+# rsync/scp destination for the showcase page, e.g. user@host:/srv/path
+export SHOWCASE_SSH_DEST=""
+# public base URL where the showcase is served (OAuth-gated host)
+export SHOWCASE_URL_BASE=""
+# X display the game runs on
+export GAME_DISPLAY=":1"

@@ -1,0 +1,16 @@
+# local env & secrets-adjacent config (deploy targets live here, never in the repo)
+.envrc
+
+# python
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# run artifacts (checkpoints, eval videos, metrics, showcase build)
+runs/
+artifacts/
+*.mp4
+*.png
+!docs/**/*.png
