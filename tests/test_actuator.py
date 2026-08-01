@@ -4,7 +4,15 @@
 import subprocess
 import sys
 
-from teardown_lab.actuator import Action, Actuator, InputBackend, RecordingBackend
+from teardown_lab.actuator import (
+    BUTTON_ORDER,
+    KEY_ORDER,
+    Action,
+    Actuator,
+    InputBackend,
+    RecordingBackend,
+    UinputBackend,
+)
 
 
 def make() -> tuple[Actuator, RecordingBackend]:
@@ -16,12 +24,21 @@ def test_recording_backend_satisfies_protocol():
     assert isinstance(RecordingBackend(), InputBackend)
 
 
-def test_importing_actuator_does_not_import_pyautogui():
-    code = "import teardown_lab.actuator, sys; print('pyautogui' in sys.modules)"
+def test_importing_actuator_does_not_import_input_libraries():
+    code = (
+        "import teardown_lab.actuator, sys; "
+        "print(any(m in sys.modules for m in ('pyautogui', 'evdev')))"
+    )
     out = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert out.stdout.strip() == "False"
+
+
+def test_uinput_backend_covers_every_emitted_name():
+    # The live backend must have an evdev code for everything the Actuator can emit.
+    assert set(UinputBackend.KEYS) == set(KEY_ORDER)
+    assert set(UinputBackend.BUTTONS) == set(BUTTON_ORDER)
 
 
 def test_look_scales_to_pixels():

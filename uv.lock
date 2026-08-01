@@ -100,6 +100,12 @@ nvtx = [
 ]
 
 [[package]]
+name = "evdev"
+version = "1.9.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/f5/397b61091120a9ca5001041dd7bf76c385b3bfd67a0e5bcb74b852bd22a4/evdev-1.9.3.tar.gz", hash = "sha256:2c140e01ac8437758fa23fe5c871397412461f42d421aa20241dc8fe8cfccbc9", size = 32723 }
+
+[[package]]
 name = "farama-notifications"
 version = "0.0.6"
 source = { registry = "https://pypi.org/simple" }
@@ -131,10 +137,10 @@ name = "gymnasium"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cloudpickle" },
-    { name = "farama-notifications" },
-    { name = "numpy" },
-    { name = "typing-extensions" },
+    { name = "cloudpickle", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "farama-notifications", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "numpy", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4d/ff/14b6880d703dfaca204490979d3254ccd280c99550798993319902873658/gymnasium-1.3.0.tar.gz", hash = "sha256:6939e86e835d6b71b6ba6bfd360487420876deafc79bfb7bacba83a7c446bcf3", size = 830646 }
 wheels = [
@@ -155,7 +161,7 @@ name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "markupsafe" },
+    { name = "markupsafe", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115 }
 wheels = [
@@ -230,7 +236,7 @@ name = "mouseinfo"
 version = "0.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyperclip" },
+    { name = "pyperclip", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
     { name = "python3-xlib", marker = "platform_system == 'Linux'" },
     { name = "rubicon-objc", marker = "platform_system == 'Darwin'" },
 ]
@@ -560,14 +566,14 @@ name = "pyautogui"
 version = "0.9.54"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "mouseinfo" },
-    { name = "pygetwindow" },
-    { name = "pymsgbox" },
+    { name = "mouseinfo", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "pygetwindow", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "pymsgbox", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
     { name = "pyobjc-core", marker = "platform_system == 'Darwin'" },
     { name = "pyobjc-framework-quartz", marker = "platform_system == 'Darwin'" },
-    { name = "pyscreeze" },
+    { name = "pyscreeze", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
     { name = "python3-xlib", marker = "platform_system == 'Linux'" },
-    { name = "pytweening" },
+    { name = "pytweening", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/65/ff/cdae0a8c2118a0de74b6cf4cbcdcaf8fd25857e6c3f205ce4b1794b27814/PyAutoGUI-0.9.54.tar.gz", hash = "sha256:dd1d29e8fd118941cb193f74df57e5c6ff8e9253b99c7b04f39cfc69f3ae04b2", size = 61236 }
 
@@ -576,7 +582,7 @@ name = "pygetwindow"
 version = "0.0.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyrect" },
+    { name = "pyrect", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e1/70/c7a4f46dbf06048c6d57d9489b8e0f9c4c3d36b7479f03c5ca97eaa2541d/PyGetWindow-0.0.9.tar.gz", hash = "sha256:17894355e7d2b305cd832d717708384017c1698a90ce24f6f7fbf0242dd0a688", size = 9699 }
 
@@ -618,7 +624,7 @@ name = "pyobjc-framework-cocoa"
 version = "12.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core" },
+    { name = "pyobjc-core", marker = "platform_system != 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/51/34/fbe38a204643aa4e1b91391cdce07a34da565a69171ebcad08de7438a556/pyobjc_framework_cocoa-12.2.1.tar.gz", hash = "sha256:b94b37fe5730e5ae1fb0052912cd174e6ec329b0bfba4a012ae5db1014b5864b", size = 3125751 }
 wheels = [
@@ -636,8 +642,8 @@ name = "pyobjc-framework-quartz"
 version = "12.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core" },
-    { name = "pyobjc-framework-cocoa" },
+    { name = "pyobjc-core", marker = "platform_system != 'Linux'" },
+    { name = "pyobjc-framework-cocoa", marker = "platform_system != 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3b/f6/2a8b84dbf1fe7c04dd96ea73d991678d4e09a909f51971ecc51629bb2ab4/pyobjc_framework_quartz-12.2.1.tar.gz", hash = "sha256:b3b8b6f71e66147f8ff9e6213864cc8527e3a0b1ee90835b93ce221f4802d9b0", size = 3215521 }
 wheels = [
@@ -676,11 +682,11 @@ name = "pytest"
 version = "9.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-    { name = "iniconfig" },
-    { name = "packaging" },
-    { name = "pluggy" },
-    { name = "pygments" },
+    { name = "colorama", marker = "(python_full_version >= '3.12' and sys_platform == 'win32') or (platform_system == 'Linux' and sys_platform == 'win32')" },
+    { name = "iniconfig", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "packaging", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "pluggy", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "pygments", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e4/47/b9efed96c114afcfa3c9d3fe98a76a1d14c74a9e266d397cf6eb64be5e01/pytest-9.1.1.tar.gz", hash = "sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313", size = 1636369 }
 wheels = [
@@ -692,7 +698,7 @@ name = "python-xlib"
 version = "0.33"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "six" },
+    { name = "six", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/86/f5/8c0653e5bb54e0cbdfe27bf32d41f27bc4e12faa8742778c17f2a71be2c0/python-xlib-0.33.tar.gz", hash = "sha256:55af7906a2c75ce6cb280a584776080602444f75815a7aff4d287bb2d7018b32", size = 269068 }
 wheels = [
@@ -743,10 +749,10 @@ name = "stable-baselines3"
 version = "2.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cloudpickle" },
-    { name = "gymnasium" },
-    { name = "numpy" },
-    { name = "torch" },
+    { name = "cloudpickle", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "gymnasium", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "numpy", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "torch", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/89/f8/9c1901a42e55b21b9e9559a720cb33dffdeb4c4215b1dfd10d63224b19c0/stable_baselines3-2.9.0.tar.gz", hash = "sha256:92b46c6099a0e8f99163ff09e26729e4d0a68b33dc8598626ca13ade3c0b3a61", size = 221345 }
 wheels = [
@@ -758,7 +764,7 @@ name = "sympy"
 version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "mpmath" },
+    { name = "mpmath", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921 }
 wheels = [
@@ -770,26 +776,28 @@ name = "teardown-agent-lab"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "gymnasium" },
-    { name = "numpy" },
-    { name = "stable-baselines3" },
+    { name = "gymnasium", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "numpy", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "stable-baselines3", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 
 [package.optional-dependencies]
 gui = [
-    { name = "mss" },
-    { name = "pillow" },
-    { name = "pyautogui" },
-    { name = "python-xlib" },
+    { name = "evdev", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "mss", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "pillow", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "pyautogui", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "python-xlib", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "pytest" },
+    { name = "pytest", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "evdev", marker = "extra == 'gui'", specifier = ">=1.7" },
     { name = "gymnasium", specifier = ">=1.0" },
     { name = "mss", marker = "extra == 'gui'", specifier = ">=9" },
     { name = "numpy", specifier = ">=1.26" },
@@ -809,18 +817,18 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cuda-bindings", marker = "python_full_version < '3.15' and platform_system == 'Linux'" },
     { name = "cuda-toolkit", extra = ["cublas", "cudart", "cufft", "cufile", "cupti", "curand", "cusolver", "cusparse", "nvjitlink", "nvrtc", "nvtx"], marker = "platform_system == 'Linux'" },
-    { name = "filelock" },
-    { name = "fsspec" },
-    { name = "jinja2" },
-    { name = "networkx" },
+    { name = "filelock", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "fsspec", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "jinja2", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "networkx", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
     { name = "nvidia-cudnn-cu13", marker = "platform_system == 'Linux'" },
     { name = "nvidia-cusparselt-cu13", marker = "platform_system == 'Linux'" },
     { name = "nvidia-nccl-cu13", marker = "platform_system == 'Linux'" },
     { name = "nvidia-nvshmem-cu13", marker = "platform_system == 'Linux'" },
-    { name = "setuptools" },
-    { name = "sympy" },
+    { name = "setuptools", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
+    { name = "sympy", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
     { name = "triton", marker = "python_full_version < '3.15' and platform_system == 'Linux'" },
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.12' or platform_system == 'Linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/3a/ed0f4d4d1dcde03bced7aac9a28e800abcdc0cbd06b6775044c9fbd877b7/torch-2.13.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:2fe228aba290d14b9f31b049be550dbd469c3fd3013d7a19705b30454da97027", size = 111213045 },

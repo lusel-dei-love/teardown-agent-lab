@@ -1,9 +1,10 @@
 # ABOUTME: Turns a continuous Action into held keys, mouse buttons and relative mouse
-# ABOUTME: motion through a swappable InputBackend (RecordingBackend in tests, X11 live).
+# ABOUTME: motion through a swappable InputBackend (RecordingBackend in tests, uinput live).
 
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -127,9 +128,66 @@ class Actuator:
                 held.add(name)
 
 
+class UinputBackend:
+    """Live backend: kernel-level evdev events on /dev/uinput.
+
+    Measured 2026-08-01: Teardown ignores XTest-synthesized input (pyautogui/xdotool)
+    entirely - the pointer moves but clicks and keys never register - while uinput
+    events do register. /dev/uinput is user-writable via ACL, so no sudo is needed.
+    evdev is imported lazily so this module stays importable headless.
+    """
+
+    KEYS = {"w": "KEY_W", "a": "KEY_A", "s": "KEY_S", "d": "KEY_D"}
+    BUTTONS = {"left": "BTN_LEFT", "right": "BTN_RIGHT"}
+
+    # The game needs a moment to enumerate a freshly created input device.
+    SETTLE_S = 1.5
+
+    def __init__(self, settle_s: float = SETTLE_S, sleeper=time.sleep):
+        from evdev import UInput, ecodes
+
+        self._ecodes = ecodes
+        key_codes = [getattr(ecodes, name) for name in self.KEYS.values()]
+        button_codes = [getattr(ecodes, name) for name in self.BUTTONS.values()]
+        self._device = UInput(
+            {
+                ecodes.EV_KEY: key_codes + button_codes,
+                ecodes.EV_REL: [ecodes.REL_X, ecodes.REL_Y],
+            },
+            name="teardown-lab-input",
+        )
+        sleeper(settle_s)
+
+    def move_mouse(self, dx: int, dy: int) -> None:
+        if not dx and not dy:
+            return
+        if dx:
+            self._device.write(self._ecodes.EV_REL, self._ecodes.REL_X, int(dx))
+        if dy:
+            self._device.write(self._ecodes.EV_REL, self._ecodes.REL_Y, int(dy))
+        self._device.syn()
+
+    def key(self, name: str, down: bool) -> None:
+        self._emit(getattr(self._ecodes, self.KEYS[name]), down)
+
+    def button(self, name: str, down: bool) -> None:
+        self._emit(getattr(self._ecodes, self.BUTTONS[name]), down)
+
+    def close(self) -> None:
+        self._device.close()
+
+    def _emit(self, code: int, down: bool) -> None:
+        self._device.write(self._ecodes.EV_KEY, code, 1 if down else 0)
+        self._device.syn()
+
+
 class X11Backend:
-    """Live backend: pyautogui against a specific X display. Imported lazily so the
-    rest of the module stays importable headless."""
+    """Pointer-positioning backend: pyautogui against a specific X display.
+
+    Only mouse MOTION lands in Teardown through XTest; its `key`/`button` events are
+    silently ignored by the game (see UinputBackend). Kept for cursor placement and
+    for driving non-game X clients. Imported lazily so the module stays headless-safe.
+    """
 
     def __init__(self, display: str):
         self.display = display

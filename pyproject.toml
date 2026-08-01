@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 dependencies = ["gymnasium>=1.0", "numpy>=1.26", "stable-baselines3>=2.3"]
 
 [project.optional-dependencies]
-gui = ["pyautogui>=0.9", "python-xlib>=0.33", "mss>=9", "pillow>=10"]
+gui = ["pyautogui>=0.9", "python-xlib>=0.33", "mss>=9", "pillow>=10", "evdev>=1.7"]
 
 [dependency-groups]
 dev = ["pytest>=8"]
