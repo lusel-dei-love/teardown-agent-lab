@@ -5,13 +5,13 @@
 
 ## M0 — bridge
 - [x] Verify Teardown modding API external-I/O surface -> registry/savegame.xml at >=49 Hz (see docs/superpowers/research/2026-08-01-bridge-transport.md)
-- [ ] Lua mod skeleton: spawn-tagged tower level, state read, reward/success, Restart/SetRandomSeed reset
-- [ ] bridge.py with chosen transport + FakeBridge for host-side tests
+- [x] Lua mod: 3x3 tagged tower via Spawn() voxbox XML, state via registry, reset via HasFile rising edge
+- [x] bridge.py transport + FakeBridge (savegame.py parser, RealBridge polling) -- live verification pending
 
 ## M1 — env round-trip
-- [ ] actuator.py (pyautogui/python-xlib) + window focus management
-- [ ] capture.py (screenshots + ffmpeg episode recording)
-- [ ] env.py Gymnasium env against FakeBridge (unit-tested), then real game
+- [x] actuator.py (uinput backend; XTest proven inert) + window focus management
+- [x] capture.py (screenshots + ffmpeg episode recording)
+- [x] env.py Gymnasium env against FakeBridge (unit-tested); real-game pass pending
 - [ ] scripted policy topples tower end-to-end (validates reward + success)
 
 ## M2 — training + eval
