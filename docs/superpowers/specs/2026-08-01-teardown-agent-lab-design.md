@@ -22,7 +22,7 @@ text-action interface, on a task none of them has seen.
 A custom Teardown sandbox level containing a tower of loose blocks. Episode: agent spawns
 at a fixed pose, timeout T seconds. Success: the tower's maximum block height drops below
 a threshold (equivalently >= K blocks displaced from their spawn poses). Reward (shaped,
-computed game-side): approach term + per-step displacement delta + success bonus.
+computed host-side in referee.py): approach term + per-step displacement delta + success bonus.
 Defaults (tunable constants, recalibrated at M1 against the real level): T = 60 s,
 tower = 3x1 stack of 9 blocks, K = 5, displacement threshold = 0.5 m from spawn pose.
 
@@ -30,8 +30,9 @@ tower = 3x1 stack of 9 blocks, K = 5, displacement threshold = 0.5 m from spawn 
 
 ```
 Teardown (Proton, X display, window class steam_app_1167630)
-  └─ Lua mod  = sensor + referee: reads body transforms, computes reward/success,
-     handles deterministic reset (Restart + SetRandomSeed), serves state via bridge
+  └─ Lua mod  = sensor + reset only: streams body/player transforms, handles
+     deterministic reset (Restart + SetRandomSeed). Reward/success are computed
+     HOST-SIDE in Python (referee.py, pure functions, unit-tested) from that state.
 bridge.py     = transport abstraction to the mod. Preference order:
                  (1) native HTTP if the modding API exposes it  [verify FIRST]
                  (2) file mailbox in the mod's writable dir
