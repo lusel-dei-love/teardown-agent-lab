@@ -50,6 +50,20 @@ docs/superpowers/research/2026-08-01-bridge-transport.md   # Task 1 output
 **Interfaces:**
 - Produces: the chosen state-out / command-in mechanism, exact API calls, and update rate limits. Tasks 8-9 implement against this record. Everything in Tasks 2-7 is transport-agnostic and does NOT wait for this.
 
+**FINDINGS SO FAR (2026-08-01, from the official API reference):** the Lua API has
+**no HTTP/socket functions and no file-write functions**. Available out-channels are
+`DebugPrint(text)`, `DebugWatch(name, value)`, the registry (`SetString/SetInt/SetFloat/
+SetBool/GetString/.../ClearKey/ListKeys/HasKey`), and UI drawing (`UiText`/`UiRect`, only
+inside `draw()`). In-channels: `HasFile(path)` (existence polling) and normal key input.
+Game user data lives at `<prefix>/drive_c/users/steamuser/AppData/Local/Teardown/`
+(contains `log.txt`, `savegame.xml`, `options.xml`); mods at
+`<prefix>/drive_c/users/steamuser/Documents/Teardown/mods/`. `log.txt` exists but is
+0 bytes at the main menu — whether `DebugPrint` reaches it live is exactly what Step 2
+must measure. A probe mod (`bridgeprobe`, not committed) is already written to exercise
+DebugPrint / registry / HasFile simultaneously.
+Command-in is expected to be **injected keystrokes** (uinput) read mod-side via
+`InputPressed`, not a file channel — the actuator already exists for that.
+
 - [ ] **Step 1: Read the current official modding docs** (`https://teardowngame.com/modding/` and the API reference page it links, at game version 2.0.4). Enumerate every capability for getting data OUT of a running mod (HTTP/network functions, file write, registry/savegame persistence, clipboard, debug log path + format) and IN (file read, registry, launch params, HTTP responses).
 - [ ] **Step 2: Confirm findings in-game** with a probe mod (temporary, not committed) that exercises the top candidate each way for 100 ticks; verify on the host that the data actually lands (file mtime / HTTP hits / log lines) and measure achievable rate.
 - [ ] **Step 3: Write the decision record**: chosen transport out + in, exact Lua calls, serialization format, measured max Hz, fallback ranking, and the mod-install path for Proton (`<steam>/steamapps/compatdata/1167630/pfx/drive_c/users/steamuser/Documents/Teardown/mods` or as discovered).
@@ -156,7 +170,14 @@ def test_reward_displacement_delta():
   - `class InputBackend(Protocol): def move_mouse(self, dx: int, dy: int); def key(self, name: str, down: bool); def button(self, name: str, down: bool)`
   - `RecordingBackend` (test double, records calls)
   - `Actuator(backend, look_scale: int = 200)` with `.apply(action)` mapping: look -> `move_mouse(dx*look_scale, dy*look_scale)`; move_y>0.3 -> hold `w` (release when <=0.3), move_y<-0.3 -> `s`; move_x likewise `d`/`a`; grab -> right button hold; swing -> left button hold; `.release_all()`.
-  - `X11Backend(display: str)` — thin pyautogui wrapper (no unit tests; exercised in game tasks); plus `find_game_window(display) -> int | None` matching WM_CLASS `steam_app_1167630`.
+  - `UinputBackend()` — **the real backend** (no unit tests; exercised in game tasks). Writes evdev events to `/dev/uinput` via `python-evdev` `UInput`: keyboard caps for `w/a/s/d`, mouse caps `BTN_LEFT/BTN_RIGHT` + `REL_X/REL_Y`. Allow ~1.5 s after device creation for the game to enumerate it. Plus `find_game_window(display) -> int | None` matching WM_CLASS `steam_app_1167630`.
+
+  **MEASURED 2026-08-01 (do not re-litigate):** Teardown ignores XTest-synthesized input
+  (pyautogui/xdotool) — the cursor moves and buttons show hover, but clicks and keys never
+  register. Kernel-level uinput events DO register (verified: a uinput `BTN_LEFT` click
+  opened the Play submenu). `/dev/uinput` is writable by the user via ACL — no sudo needed.
+  pyautogui remains usable ONLY for pointer positioning (motion via XTest does move the
+  cursor); all button/key events must go through uinput.
 
 - [ ] **Step 1: Failing tests** for the mapping incl. hold/release hysteresis and `release_all` releasing exactly the held set.
 - [ ] **Step 2-4: Red, implement, green.** **Step 5: Commit.**

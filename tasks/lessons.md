@@ -9,6 +9,12 @@
   (`steam://open/console` -> `app_install <id>`, `steam://rungameid/<id>`) and poll
   `appmanifest_<id>.acf` (`StateFlags 4` = installed) instead of clicking dialogs.
   Proton game windows have WM_CLASS `steam_app_<appid>`, not the game's name.
+- **2026-08-01, input injection:** Teardown ignores XTest-synthesized input entirely
+  (pyautogui/xdotool): the pointer moves and UI shows hover, but clicks/keys never
+  register - a silent no-op that looks like "the click didn't land". Kernel-level uinput
+  (`python-evdev` `UInput` on `/dev/uinput`, writable via ACL, no sudo) DOES register.
+  Any future "the game ignores my input" symptom: check the injection layer first, and
+  give the game ~1.5 s to enumerate a freshly created uinput device.
 - **2026-08-01, process matching:** `pgrep -f teardown` matched this session's own tmux
   session name and a kernel thread (`oom_reaper`); a "game process is up" signal was a
   false positive for ~5 min. Match full binary paths (`teardown.exe`) and confirm with a
