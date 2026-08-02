@@ -11,8 +11,16 @@ from teardown_lab.pixel_env import ACTION_DIM, DECLARE_INDEX
 from teardown_lab.referee import success
 from teardown_lab.state import GameState
 
+# The band where a swing actually connects. Pressing forward inside it shoves the player
+# onto the pile: player height climbs, the tower ends up underfoot, and the centroid
+# bearing then swings wildly (measured: -97 deg to +74 deg between steps) because a
+# direction to something at your feet is ill-conditioned. So there is a floor as well as
+# a ceiling, and the teacher backs off below it.
 SWING_RANGE = 2.2
+TOO_CLOSE = 1.3
 AIM_TOLERANCE = 12.0
+# Below this distance the bearing is noise; stop steering rather than chase it.
+BEARING_DEADZONE = 1.6
 
 # After the tower falls, keep acting for a moment before declaring. The student copies
 # this timing, so it learns to end the episode having actually looked at the result
@@ -48,7 +56,10 @@ class PrivilegedTeacher:
         distance = math.hypot(float(right), float(forward))
 
         bearing = math.degrees(math.atan2(float(right), float(forward)))
-        action[0] = float(np.clip(bearing / 45.0, -1.0, 1.0))
+        # Close in, the bearing to the centroid is ill-conditioned; steering on it makes
+        # the teacher spin in place instead of swinging.
+        if distance > BEARING_DEADZONE:
+            action[0] = float(np.clip(bearing / 45.0, -1.0, 1.0))
 
         solved = success(state, self.k, self.threshold)
         if solved:
@@ -60,12 +71,24 @@ class PrivilegedTeacher:
 
         self._solved_for = 0
 
-        if abs(bearing) > AIM_TOLERANCE:
+        if distance < TOO_CLOSE:
+            # Standing on/inside the pile: back off to a range where a swing lands,
+            # and keep swinging on the way out.
+            action[3] = -1.0
+            action[5] = 1.0
+            return action
+
+        if abs(bearing) > AIM_TOLERANCE and distance > BEARING_DEADZONE:
             return action  # turn in place first
+
         if distance > SWING_RANGE:
             action[3] = 1.0  # walk forward
             return action
 
-        action[3] = 0.4  # keep closing
-        action[5] = 1.0  # swing
+        # In the band: keep a light forward press while swinging. The sledge does not
+        # reach at the top of the band, so this press is load-bearing - removing it made
+        # every episode fail. The TOO_CLOSE branch above is what stops it becoming a
+        # climb.
+        action[3] = 0.4
+        action[5] = 1.0
         return action

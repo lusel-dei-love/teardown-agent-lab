@@ -214,6 +214,133 @@ class X11Backend:
             self._gui.mouseUp(button=name)
 
 
+def focus_game_window(display: str) -> bool:
+    """Raise the game window and give it input focus. True if it was found.
+
+    Teardown pauses when it loses focus, which stops the registry updating and starves
+    the bridge - so any unattended run must be able to take focus back after another
+    application steals it (a browser popping up mid-collection did exactly this).
+    """
+    from Xlib import X, protocol
+    from Xlib import display as xdisplay
+
+    conn = xdisplay.Display(display)
+    try:
+        root = conn.screen().root
+        pending = [root]
+        while pending:
+            window = pending.pop()
+            try:
+                wm_class = window.get_wm_class()
+                geometry = window.get_geometry()
+            except Exception:
+                pending.extend(_safe_children(window))
+                continue
+            if wm_class and WINDOW_CLASS in wm_class and geometry.width > 300:
+                # Ask the window manager to activate the window via EWMH rather than
+                # reordering it ourselves. Under a real WM (GNOME here) a direct
+                # configure/set_input_focus is ignored or raises BadMatch, which left the
+                # game paused UNDERNEATH another window - and, worse, left the frame
+                # grabber capturing that other window as the agent's observation.
+                mask = X.SubstructureRedirectMask | X.SubstructureNotifyMask
+
+                # Switch to the workspace holding the game first. Opening another app can
+                # move the desktop to a different workspace, leaving the game running
+                # unfocused (so paused) and invisible - which silently feeds the frame
+                # grabber whatever IS on screen instead of the game.
+                current = root.get_full_property(
+                    conn.intern_atom("_NET_CURRENT_DESKTOP"), X.AnyPropertyType
+                )
+                desktop = window.get_full_property(
+                    conn.intern_atom("_NET_WM_DESKTOP"), X.AnyPropertyType
+                )
+                if (
+                    current is not None
+                    and desktop is not None
+                    and current.value
+                    and desktop.value
+                ):
+                    delta = int(desktop.value[0]) - int(current.value[0])
+                    if delta:
+                        _switch_workspace(delta)
+                        conn.sync()
+
+                # Ask to stay above other windows. Activation alone loses to GNOME's
+                # focus-stealing prevention, which left another app covering the game.
+                state_event = protocol.event.ClientMessage(
+                    window=window,
+                    client_type=conn.intern_atom("_NET_WM_STATE"),
+                    data=(
+                        32,
+                        [
+                            1,  # _NET_WM_STATE_ADD
+                            conn.intern_atom("_NET_WM_STATE_ABOVE"),
+                            0,
+                            1,
+                            0,
+                        ],
+                    ),
+                )
+                root.send_event(state_event, event_mask=mask)
+
+                activate_event = protocol.event.ClientMessage(
+                    window=window,
+                    client_type=conn.intern_atom("_NET_ACTIVE_WINDOW"),
+                    data=(32, [1, X.CurrentTime, 0, 0, 0]),
+                )
+                root.send_event(activate_event, event_mask=mask)
+                conn.flush()
+                conn.sync()
+                return True
+            pending.extend(_safe_children(window))
+        return False
+    finally:
+        conn.close()
+
+
+def _switch_workspace(delta: int) -> None:
+    """Move `delta` workspaces using a synthetic Super+PageUp/PageDown.
+
+    GNOME ignores _NET_CURRENT_DESKTOP from a non-pager client, so EWMH cannot move the
+    view to the workspace holding the game. It does honour real input, and uinput events
+    are indistinguishable from a physical keyboard - the same reason uinput is what
+    drives the game at all. Without this, another app opening can strand the game on
+    another workspace, where it pauses AND the frame grabber silently captures whatever
+    is on screen instead.
+    """
+    import time
+
+    from evdev import UInput
+    from evdev import ecodes as e
+
+    key = e.KEY_PAGEUP if delta < 0 else e.KEY_PAGEDOWN
+    device = UInput({e.EV_KEY: [e.KEY_LEFTMETA, e.KEY_PAGEUP, e.KEY_PAGEDOWN]}, name="td-lab-ws")
+    try:
+        time.sleep(UinputBackend.SETTLE_S)
+        for _ in range(abs(delta)):
+            device.write(e.EV_KEY, e.KEY_LEFTMETA, 1)
+            device.syn()
+            time.sleep(0.05)
+            device.write(e.EV_KEY, key, 1)
+            device.syn()
+            time.sleep(0.08)
+            device.write(e.EV_KEY, key, 0)
+            device.syn()
+            time.sleep(0.05)
+            device.write(e.EV_KEY, e.KEY_LEFTMETA, 0)
+            device.syn()
+            time.sleep(0.4)
+    finally:
+        device.close()
+
+
+def _safe_children(window):
+    try:
+        return window.query_tree().children
+    except Exception:
+        return []
+
+
 def find_game_window(display: str) -> int | None:
     """Window id of the Teardown window on `display`, matched by WM_CLASS, or None."""
     from Xlib import display as xdisplay

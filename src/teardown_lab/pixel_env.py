@@ -59,11 +59,15 @@ class TeardownPixelEnv(gym.Env):
         frames,
         cfg: PixelEnvConfig | None = None,
         sleeper=time.sleep,
+        refocus=None,
     ):
         super().__init__()
         self.bridge = bridge
         self.actuator = actuator
         self.frames = frames
+        # Callable returning True if the game window was (re)focused; None disables
+        # recovery, which is what tests want.
+        self.refocus = refocus
         self.cfg = cfg or PixelEnvConfig()
         self.sleeper = sleeper
         self.reward_cfg = RewardConfig(k=self.cfg.k, threshold=self.cfg.threshold)
@@ -192,9 +196,17 @@ class TeardownPixelEnv(gym.Env):
 
     def _read(self) -> GameState:
         state = self.bridge.read_state()
-        if state is None:
-            raise RuntimeError("bridge returned no state")
-        return state
+        if state is not None:
+            return state
+
+        # No fresh frame usually means the game paused because something else took
+        # focus. Take it back and retry once before giving up, so an unattended run
+        # survives a stray popup rather than dying mid-episode.
+        if self.refocus is not None and self.refocus():
+            state = self.bridge.read_state(timeout=5.0)
+            if state is not None:
+                return state
+        raise RuntimeError("bridge returned no state (game paused or mod not running?)")
 
     def _info(self, state: GameState, declared: bool) -> dict:
         """Privileged truth for scoring and for the teacher. Never fed to the policy."""

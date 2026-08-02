@@ -6,9 +6,22 @@ dependencies = ["gymnasium>=1.0", "numpy>=1.26", "stable-baselines3>=2.3"]
 
 [project.optional-dependencies]
 gui = ["pyautogui>=0.9", "python-xlib>=0.33", "mss>=9", "pillow>=10", "evdev>=1.7"]
+train = ["torch>=2.7,<2.8"]
 
 [dependency-groups]
 dev = ["pytest>=8"]
+
+# CPU wheels on purpose. This machine's NVIDIA driver (565) predates the CUDA 13 wheels
+# torch now ships by default, and forcing older CUDA builds left a stale libtorch_cuda.so
+# that broke importing torch at all. The student is a small CNN over a few thousand
+# 128x72 frames, so CPU is adequate; revisit if the driver is upgraded past 570.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.pytest.ini_options]
 addopts = "-m 'not game'"
