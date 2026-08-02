@@ -59,7 +59,7 @@ def test_success_bonus_paid_once():
     before = state_with_displaced_blocks(4, 1.0)
     first = state_with_displaced_blocks(5, 1.0)
     again = state_with_displaced_blocks(5, 1.0)
-    cfg = RewardConfig(approach_w=0.0, displace_w=0.0, success_bonus=10.0)
+    cfg = RewardConfig(approach_w=0.0, displace_w=0.0, success_bonus=10.0, k=5)
     assert referee.reward(before, first, cfg) == pytest.approx(10.0)
     assert referee.reward(first, again, cfg) == pytest.approx(0.0)
 
@@ -67,7 +67,7 @@ def test_success_bonus_paid_once():
 def test_reward_combines_terms():
     prev = state_with_displaced_blocks(4, 1.0, player_pos=(0.0, 0.0, -5.0))
     curr = state_with_displaced_blocks(5, 1.0, player_pos=(0.0, 0.0, -4.0))
-    cfg = RewardConfig()
+    cfg = RewardConfig(k=5)
     prev_dist = np.linalg.norm(np.array(prev.player_pos) - referee.tower_centroid(prev))
     curr_dist = np.linalg.norm(np.array(curr.player_pos) - referee.tower_centroid(curr))
     expected = (

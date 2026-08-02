@@ -65,6 +65,32 @@ def evaluate(model, data, idx, mean, std, pos_weight) -> dict:
     }
 
 
+def tune_declare_threshold(model, data, idx, mean, std) -> float:
+    """Threshold maximising F1 on the validation split."""
+    model.eval()
+    with torch.no_grad():
+        pixels = preprocess_pixels(data["pixels"][idx])
+        proprio = torch.from_numpy(((data["proprio"][idx] - mean) / std).astype(np.float32))
+        probs = torch.sigmoid(model(pixels, proprio)[:, DECLARE_INDEX]).numpy()
+    model.train()
+    truth = (data["actions"][idx][:, DECLARE_INDEX] > 0).astype(bool)
+
+    best, best_f1 = 0.5, -1.0
+    for threshold in np.linspace(0.05, 0.99, 95):
+        predicted = probs > threshold
+        tp = float((predicted & truth).sum())
+        fp = float((predicted & ~truth).sum())
+        fn = float((~predicted & truth).sum())
+        if tp == 0:
+            continue
+        precision = tp / (tp + fp)
+        recall = tp / (tp + fn)
+        f1 = 2 * precision * recall / (precision + recall)
+        if f1 >= best_f1:
+            best_f1, best = f1, float(threshold)
+    return best
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the pixel student.")
     parser.add_argument("--dataset", type=Path, default=Path("runs/teacher_dataset.npz"))
@@ -74,6 +100,7 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--val-fraction", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--max-pos-weight", type=float, default=20.0)
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -88,7 +115,12 @@ def main() -> None:
     # head trivially learns "never declare" and the episode can only ever time out.
     declare_targets = (data["actions"][:, DECLARE_INDEX] > 0).astype(np.float32)
     positives = max(declare_targets.sum(), 1.0)
-    pos_weight = float((len(declare_targets) - positives) / positives)
+    raw_ratio = (len(declare_targets) - positives) / positives
+    # Cap the positive weight. The raw negative:positive ratio here is ~240:1, and using
+    # it directly makes "always declare" the loss-minimising answer: measured precision
+    # 0.01 at recall 1.00, i.e. a student that would end every episode immediately with a
+    # false declaration. A capped weight keeps the head sensitive without swamping it.
+    pos_weight = float(min(raw_ratio, args.max_pos_weight))
 
     model = PixelStudent()
     optimiser = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -142,6 +174,16 @@ def main() -> None:
             flush=True,
         )
         save_stage(epoch)
+
+    # Pick the declare threshold on validation rather than defaulting to 0.5: the head
+    # is trained on a heavily imbalanced signal, so the useful operating point is not the
+    # midpoint. Maximise F1, and prefer higher thresholds on ties (a false declaration
+    # costs a whole episode).
+    threshold = tune_declare_threshold(model, data, val_idx, mean, std)
+    StudentPolicy(model, mean, std, declare_threshold=threshold).save(
+        args.out_dir / "stage_100.pt"
+    )
+    print(f"declare threshold tuned on validation: {threshold:.3f}")
 
     (args.out_dir / "history.json").write_text(json.dumps(history, indent=2))
     print(json.dumps(history[-1], indent=2))

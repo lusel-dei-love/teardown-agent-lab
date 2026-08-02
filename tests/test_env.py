@@ -81,14 +81,14 @@ def test_step_actuates_and_sleeps_on_the_hz_grid():
 def test_success_terminates_and_pays_bonus():
     prev = state_with_displaced_blocks(4, 1.0, t=0.0)
     curr = state_with_displaced_blocks(5, 1.0, t=0.1)
-    env, *_ = build_env([prev, curr])
+    env, *_ = build_env([prev, curr], EnvConfig(k=5))
     env.reset(seed=1)
     obs, reward, terminated, truncated, info = env.step(noop_action())
     assert terminated is True
     assert truncated is False
     assert info["success"] is True
     assert info["t"] == pytest.approx(0.1)
-    assert reward == pytest.approx(referee_reward(prev, curr, RewardConfig()))
+    assert reward == pytest.approx(referee_reward(prev, curr, RewardConfig(k=5)))
     assert reward > 10.0
 
 

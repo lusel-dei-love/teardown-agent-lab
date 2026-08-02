@@ -17,7 +17,7 @@ class RewardConfig:
     approach_w: float = 0.05
     displace_w: float = 1.0
     success_bonus: float = 10.0
-    k: int = 5
+    k: int = 4
     threshold: float = 0.5
 
 

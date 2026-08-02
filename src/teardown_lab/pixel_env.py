@@ -33,7 +33,7 @@ class PixelEnvConfig:
 
     hz: float = 10.0
     timeout_s: float = 60.0
-    k: int = 5
+    k: int = 4
     threshold: float = 0.5
     # Reward shaping still uses privileged state - that is allowed, it never reaches
     # the policy's input. Only the observation is restricted.
