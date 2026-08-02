@@ -20,9 +20,18 @@
 - [x] pixel_env.py: obs = pixels + own proprioception only; declare action ends episode
 - [x] teacher.py: privileged expert emitting student-shaped actions incl. declare
 - [x] verified live: teacher solves + declares correctly at a true 10.0 Hz
-- [ ] collect teacher demonstration dataset (frames + actions + privileged labels)
-- [ ] train pixel student (CNN + proprio head), DAgger-style
-- [ ] eval student: success rate AND false-declaration rate
+- [x] collect teacher demonstration dataset (4097 samples / 30 episodes, 17 successes)
+- [x] train pixel student (CNN + proprio head); val control MSE 0.093
+- [x] eval student vs random vs untrained -- NEGATIVE RESULT, see below
+- [ ] **student does not solve the task yet.** stage_100 declares falsely at step ~12 in
+      4/4 episodes; every earlier stage never declares and times out. Ranked fixes:
+      1. more data: 30 episodes is tiny for pixel BC. Collection runs at ~4 episodes/min,
+         so 200+ episodes is <1 h -- the cheapest lever by far.
+      2. declare labels: only 17 positives in 4097 samples. Label the whole post-success
+         verification window as declare-positive (~8x more) instead of the single step.
+      3. teacher ceiling: ~57% success means even perfect imitation caps there.
+      4. no motion cue in the observation: single frames + proprio velocity. Stack 2-4
+         frames so the student can see blocks falling.
 
 ## M2 — training + eval
 - [ ] train_sac.py (SB3) with staged checkpoints (0/25/50/100%)
