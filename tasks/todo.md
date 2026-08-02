@@ -15,6 +15,15 @@
 - [x] scripted policy topples tower end-to-end -- success=True in 23.6s, 6/9 blocks displaced
 - [ ] record a real episode trace as a game-free referee regression fixture
 
+## M1b — non-privileged agent (amendment 2026-08-02)
+- [x] frames.py: downsampled RGB grabber (16 ms/frame after stride optimisation)
+- [x] pixel_env.py: obs = pixels + own proprioception only; declare action ends episode
+- [x] teacher.py: privileged expert emitting student-shaped actions incl. declare
+- [x] verified live: teacher solves + declares correctly at a true 10.0 Hz
+- [ ] collect teacher demonstration dataset (frames + actions + privileged labels)
+- [ ] train pixel student (CNN + proprio head), DAgger-style
+- [ ] eval student: success rate AND false-declaration rate
+
 ## M2 — training + eval
 - [ ] train_sac.py (SB3) with staged checkpoints (0/25/50/100%)
 - [ ] eval.py fixed-seed protocol -> metrics.json + per-episode MP4

@@ -3,7 +3,45 @@
 
 # teardown-agent-lab — Design
 
-**Status:** approved 2026-08-01. **Scope:** v1 (single task, single machine).
+**Status:** approved 2026-08-01; **amended 2026-08-02** (observation, termination,
+training method — see "Amendment" below, which supersedes the original v1 text where
+they conflict). **Scope:** v1 (single task, single machine).
+
+## Amendment 2026-08-02 — no privileged information in the policy's input
+
+The original v1 fed the agent privileged state (player pose + every block pose). That is
+now disallowed. The rule:
+
+> **Privileged state may be used in the loss, the reward, the teacher, and the eval
+> scoring. It must never enter the policy's observation.**
+
+Three consequences:
+
+1. **Observation = pixels + own proprioception.** The policy sees a downsampled RGB frame
+   of the game window plus its OWN yaw, pitch and velocity. The line is *self vs world*:
+   a real robot has joint encoders, so self-state is fair; anything about the world
+   (block poses, tower geometry) must be inferred from pixels. Measured cost: 8 ms to
+   grab 1920x1080, 21 ms to downsample to 128x72 - 29 ms of the 100 ms step budget.
+
+2. **Termination is no longer an oracle.** Ending the episode the instant the privileged
+   referee fires leaks privileged information through the episode structure, and means
+   the agent never has to *look* at what it did. Instead the action space gains a
+   **declare-complete** action: the agent decides the task is done, which ends the
+   episode, and we score whether it was right. This makes visual verification
+   instrumentally necessary and yields a metric the old design could not express -
+   **false-declaration rate** (declared complete while the tower still stands).
+   Episodes still truncate on the timeout.
+
+3. **Training is teacher -> student distillation.** The privileged scripted policy (which
+   already solves the task) acts as teacher; the pixel policy learns to imitate it,
+   DAgger-style, with privileged state present only in the loss. Chosen over end-to-end
+   asymmetric RL because the game caps us at ~36k environment steps per hour (no headless
+   mode, no parallel instances), where pure pixel RL would plausibly need 100k-500k steps
+   per run. Asymmetric actor-critic finetuning stays open as a follow-up.
+
+**This also fixes the benchmark.** The RL agent and the MolmoAct 2 / Cosmos 3 Edge
+baselines now share an observation space (pixels) and an action interface (uinput), so
+the comparison is like-for-like rather than privileged-vs-pixels.
 
 ## Goal
 
