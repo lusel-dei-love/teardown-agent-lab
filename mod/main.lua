@@ -14,6 +14,12 @@ local JITTER_M = 0.05  -- per-episode initial-state randomisation
 
 -- Host command channel: the host creates/removes these files in the mod folder.
 local RESET_FILE = "MOD/reset.txt"
+-- Full level reload. The soft reset above respawns blocks but never repairs the world,
+-- and this game is destructible: after ~60 episodes of sledge swinging the ground is
+-- cratered and the same teacher that solved reliably drops to ~25%. A long collection
+-- run must periodically restore the terrain or its later data is measuring a different
+-- task than its earlier data.
+local HARD_RESET_FILE = "MOD/hardreset.txt"
 
 -- Registry keys. The engine rewrites these under savegame.mod.local-<modfolder>.
 local STATE_KEY = "savegame.mod.state"
@@ -208,6 +214,11 @@ end
 function tick()
 	-- Host command channel: reset on the rising edge of the file appearing, so the
 	-- host can hold the file until it observes the episode counter advance.
+	if HasFile(HARD_RESET_FILE) then
+		Restart()
+		return
+	end
+
 	local want_reset = HasFile(RESET_FILE)
 	if want_reset and not reset_seen and phase == PHASE_LIVE then
 		begin_reset()

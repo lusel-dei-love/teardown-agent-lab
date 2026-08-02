@@ -14,6 +14,7 @@ SAVEGAME_REL = "drive_c/users/steamuser/AppData/Local/Teardown/savegame.xml"
 MODS_REL = "drive_c/users/steamuser/Documents/Teardown/mods"
 
 RESET_FILE = "reset.txt"
+HARD_RESET_FILE = "hardreset.txt"
 
 
 class RealBridge:
@@ -122,5 +123,31 @@ class RealBridge:
             # Let the mod observe the file disappear so the next reset is a rising edge.
             self._sleep(0.1)
 
+    def hard_reset(self, timeout: float = 90.0) -> GameState | None:
+        """Reload the level, restoring terrain the agent has destroyed.
+
+        Soft resets respawn the tower but leave the world cratered; across a long run
+        that silently changes the task. The level reload takes ~10-20 s and restarts the
+        mod, so the episode counter goes back to zero - callers must not assume it only
+        increases across a hard reset.
+        """
+        path = self.mod_dir / HARD_RESET_FILE
+        path.write_text("1", encoding="utf-8")
+        try:
+            self._sleep(3.0)  # let the mod see the file and call Restart()
+        finally:
+            path.unlink(missing_ok=True)
+
+        self._last_seq = None
+        self._last_mtime_ns = -1
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            state = self._read_once()
+            if state is not None and state.live:
+                return state
+            self._sleep(0.25)
+        return None
+
     def close(self) -> None:
         (self.mod_dir / RESET_FILE).unlink(missing_ok=True)
+        (self.mod_dir / HARD_RESET_FILE).unlink(missing_ok=True)

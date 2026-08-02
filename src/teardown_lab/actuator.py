@@ -298,6 +298,49 @@ def focus_game_window(display: str) -> bool:
         conn.close()
 
 
+def game_window_visible(display: str) -> bool:
+    """True if the game window can actually be read right now.
+
+    Visibility is the only thing that matters for pixel capture, and it is the one thing
+    window properties do not reliably report: a fullscreen game may carry no
+    _NET_WM_DESKTOP at all. Attempting to read the window is the direct test - X refuses
+    it when the window is not viewable.
+    """
+    from Xlib import X
+    from Xlib import display as xdisplay
+
+    conn = xdisplay.Display(display)
+    try:
+        window_id = find_game_window(display)
+        if window_id is None:
+            return False
+        window = conn.create_resource_object("window", window_id)
+        geometry = window.get_geometry()
+        window.get_image(0, 0, 1, 1, X.ZPixmap, 0xFFFFFFFF)
+        return geometry.width > 300
+    except Exception:
+        return False
+    finally:
+        conn.close()
+
+
+def ensure_game_visible(display: str, attempts: int = 5) -> bool:
+    """Cycle workspaces until the game window is readable. True if it ended visible.
+
+    Another application opening can move the desktop to a different workspace. The game
+    keeps running there (so the bridge still returns state and nothing looks broken) but
+    the frame grabber captures whatever IS on screen - silently recording a browser as
+    the agent's observation. This is the guard against that.
+    """
+    if game_window_visible(display):
+        return True
+    for _ in range(attempts):
+        _switch_workspace(-1)
+        if game_window_visible(display):
+            return True
+    return False
+
+
 def _switch_workspace(delta: int) -> None:
     """Move `delta` workspaces using a synthetic Super+PageUp/PageDown.
 

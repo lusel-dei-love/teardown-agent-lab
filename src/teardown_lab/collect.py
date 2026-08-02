@@ -21,12 +21,14 @@ class EpisodeBuffer:
     actions: list = field(default_factory=list)
     # Whether the executed action was the teacher's (on-policy) or a scramble.
     on_policy: list = field(default_factory=list)
+    solved: list = field(default_factory=list)
 
-    def add(self, obs, action, on_policy: bool) -> None:
+    def add(self, obs, action, on_policy: bool, solved: bool = False) -> None:
         self.pixels.append(obs["pixels"])
         self.proprio.append(obs["proprio"])
         self.actions.append(action)
         self.on_policy.append(on_policy)
+        self.solved.append(solved)
 
     def __len__(self) -> int:
         return len(self.actions)
@@ -77,7 +79,7 @@ def collect_episode(
         else:
             executed = label
 
-        buf.add(obs, label, on_policy=not scrambling)
+        buf.add(obs, label, on_policy=not scrambling, solved=bool(info["success"]))
         obs, _reward, terminated, truncated, info = env.step(executed)
 
         if terminated or truncated:
@@ -91,6 +93,18 @@ def collect_episode(
     else:
         result["steps"] = max_steps
 
+    # Widen the declare label. The teacher declares exactly once per episode, which left
+    # 17 positives in 4097 samples - so little that the head learned either "always
+    # declare" or "never declare" depending only on the class weight. Every frame where
+    # the privileged referee already says solved is a moment at which declaring is
+    # CORRECT (that is precisely how the env scores it), so all of them are valid
+    # positives and the signal becomes learnable.
+    if result["success"]:
+        for i, was_solved in enumerate(buf.solved):
+            if was_solved:
+                buf.actions[i] = buf.actions[i].copy()
+                buf.actions[i][DECLARE_INDEX] = 1.0
+
     return buf, result
 
 
@@ -99,10 +113,16 @@ def save_dataset(path: Path, buffers: list[EpisodeBuffer], results: list[dict]) 
     proprio = np.concatenate([np.asarray(b.proprio, dtype=np.float32) for b in buffers])
     actions = np.concatenate([np.asarray(b.actions, dtype=np.float32) for b in buffers])
     on_policy = np.concatenate([np.asarray(b.on_policy, dtype=bool) for b in buffers])
+    solved = np.concatenate([np.asarray(b.solved, dtype=bool) for b in buffers])
 
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
-        path, pixels=pixels, proprio=proprio, actions=actions, on_policy=on_policy
+        path,
+        pixels=pixels,
+        proprio=proprio,
+        actions=actions,
+        on_policy=on_policy,
+        solved=solved,
     )
     return {
         "samples": int(len(actions)),
@@ -123,9 +143,20 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("runs/teacher_dataset.npz"))
     parser.add_argument("--display", default=":1")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--hard-reset-every",
+        type=int,
+        default=25,
+        help="Reload the level every N episodes to repair destroyed terrain (0 disables).",
+    )
     args = parser.parse_args()
 
-    from teardown_lab.actuator import Actuator, UinputBackend, focus_game_window
+    from teardown_lab.actuator import (
+        Actuator,
+        UinputBackend,
+        ensure_game_visible,
+        focus_game_window,
+    )
     from teardown_lab.frames import FrameGrabber
     from teardown_lab.pixel_env import PixelEnvConfig
     from teardown_lab.real_bridge import RealBridge
@@ -144,8 +175,17 @@ def main() -> None:
     started = time.time()
     try:
         for ep in range(args.episodes):
-            # Take focus back before every episode: the game pauses without it.
+            # Take focus back before every episode, and make sure the game is actually
+            # the visible workspace - otherwise the frame grabber records another app.
             focus_game_window(args.display)
+            if not ensure_game_visible(args.display):
+                print("-- WARNING: game window not visible; frames may be invalid", flush=True)
+
+            if args.hard_reset_every and ep and ep % args.hard_reset_every == 0:
+                print(f"-- hard reset at episode {ep} (repairing terrain)", flush=True)
+                if env.bridge.hard_reset() is None:
+                    print("-- hard reset timed out; continuing", flush=True)
+                focus_game_window(args.display)
             scramble = int(rng.integers(0, args.scramble_max + 1))
             buf, res = collect_episode(env, teacher, rng, scramble, args.max_steps)
             buffers.append(buf)

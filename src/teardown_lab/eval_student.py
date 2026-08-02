@@ -72,7 +72,12 @@ def main() -> None:
     parser.add_argument("--display", default=":1")
     args = parser.parse_args()
 
-    from teardown_lab.actuator import Actuator, UinputBackend, focus_game_window
+    from teardown_lab.actuator import (
+        Actuator,
+        UinputBackend,
+        ensure_game_visible,
+        focus_game_window,
+    )
     from teardown_lab.frames import FrameGrabber
     from teardown_lab.pixel_env import PixelEnvConfig, TeardownPixelEnv
     from teardown_lab.real_bridge import RealBridge
@@ -97,6 +102,7 @@ def main() -> None:
             episodes = []
             for _ in range(args.episodes):
                 focus_game_window(args.display)
+                ensure_game_visible(args.display)
                 episodes.append(run_episode(env, policy, args.max_steps))
             report[name] = summarise(episodes)
             report[name]["detail"] = episodes
