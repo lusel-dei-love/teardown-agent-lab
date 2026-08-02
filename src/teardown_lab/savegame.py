@@ -30,14 +30,13 @@ def parse_payload(payload: str) -> GameState:
     payload would corrupt the document.
     """
     fields = payload.split("|")
-    # The 9th field (camera-space blocks) was added after the first live runs; accept
-    # payloads without it so an older mod build still parses.
-    if len(fields) == 8:
-        fields = [*fields, ""]
-    if len(fields) != 9:
-        raise PayloadError(f"expected 8 or 9 fields, got {len(fields)}")
+    # One format, no guessing. Earlier shapes (8 and 9 fields) were ambiguous once
+    # `phase` was added, and the mod ships with this parser - a stale build should fail
+    # loudly here rather than be silently misread.
+    if len(fields) != 10:
+        raise PayloadError(f"expected 10 fields, got {len(fields)}")
 
-    seq, t, episode, seed, player, look, cur, spawn, local = fields
+    seq, t, episode, seed, player, look, phase, cur, spawn, local = fields
 
     yaw_s, _, pitch_s = look.partition(",")
     if not pitch_s:
@@ -67,6 +66,7 @@ def parse_payload(payload: str) -> GameState:
         blocks=blocks,
         seq=int(seq),
         blocks_local=blocks_local,
+        phase=int(phase),
     )
 
 

@@ -14,6 +14,10 @@ def ffmpeg_cmd(display: str, size: tuple[int, int], fps: int, out: Path) -> list
     """Exact argv for an x11grab recording of `display` into `out`. Pure."""
     return [
         "ffmpeg",
+        # Overwrite without prompting. Without this, a re-run against an existing path
+        # leaves ffmpeg waiting on stdin and the old file in place - which reads as a
+        # successful recording of the wrong episode.
+        "-y",
         "-f",
         "x11grab",
         "-framerate",

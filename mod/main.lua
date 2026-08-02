@@ -23,13 +23,23 @@ local READY_KEY = "savegame.mod.ready"
 -- Mutable state
 --------------------------------------------------------------------------------
 local blocks = {}       -- entity handles, ordered
-local spawns = {}       -- Vec, spawn position per block (same order)
+local spawns = {}       -- Vec, settled reference position per block (same order)
 local player_spawn = nil
 local tower_origin = nil
 local episode = 0
 local seq = 0
 local episode_t0 = 0
 local reset_seen = false
+
+-- An episode is only "live" once the freshly built tower has come to rest. Deleting
+-- and respawning in the same tick makes the new blocks interpenetrate the old ones and
+-- blast apart, which trips the success rule in ~3 s: a false positive that would
+-- silently inflate every success rate we measure. So a reset runs as a small state
+-- machine and the reference poses are recorded AFTER settling, not at spawn time.
+local PHASE_LIVE, PHASE_CLEARING, PHASE_SETTLING = 0, 1, 2
+local phase = PHASE_CLEARING
+local settle_left = 0
+local SETTLE_TICKS = 30
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -81,10 +91,21 @@ local function refresh_handles()
 	end
 end
 
+-- Snapshot where the blocks actually came to rest. Using settled poses (rather than the
+-- commanded spawn poses) means normal settling motion never counts as displacement.
+local function record_reference_poses()
+	spawns = {}
+	for idx = 0, N_BLOCKS - 1 do
+		local h = blocks[idx]
+		if h then
+			spawns[idx] = GetBodyTransform(h).pos
+		end
+	end
+end
+
 -- Build the tower: COLS wide, ROWS high, centred on tower_origin.
 local function build_tower()
 	SetRandomSeed(episode)
-	spawns = {}
 	for idx = 0, N_BLOCKS - 1 do
 		local row = math.floor(idx / COLS)
 		local col = idx % COLS
@@ -95,19 +116,34 @@ local function build_tower()
 			tower_origin[3] + jitter()
 		)
 		Spawn(block_xml(idx), Transform(pos, QuatEuler(0, 0, 0)))
-		spawns[idx] = pos
 	end
 	refresh_handles()
 end
 
-local function reset_episode()
+-- Begin a reset. The build happens on a LATER tick so the engine has actually collected
+-- the deleted bodies first; see the phase comment above.
+local function begin_reset()
 	episode = episode + 1
 	clear_blocks()
-	build_tower()
 	if player_spawn then
 		SetPlayerTransform(player_spawn)
 	end
-	episode_t0 = GetTime()
+	phase = PHASE_CLEARING
+end
+
+local function advance_phase()
+	if phase == PHASE_CLEARING then
+		build_tower()
+		phase = PHASE_SETTLING
+		settle_left = SETTLE_TICKS
+	elseif phase == PHASE_SETTLING then
+		settle_left = settle_left - 1
+		if settle_left <= 0 then
+			record_reference_poses()
+			episode_t0 = GetTime()
+			phase = PHASE_LIVE
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -126,6 +162,7 @@ local function publish_state()
 		tostring(episode), -- seed == episode index (see the transport decision record)
 		vec3(p),
 		num(GetPlayerYaw(0)) .. "," .. num(GetPlayerPitch(0)),
+		tostring(phase), -- 0 live, 1 clearing, 2 settling; only trust state when live
 	}
 
 	local cur = {}
@@ -161,7 +198,9 @@ function init()
 	-- Drop the tower base to roughly the player's feet.
 	tower_origin[2] = player_spawn.pos[2]
 
-	build_tower()
+	-- Episode 0 goes through the same clear/build/settle path as every later reset, so
+	-- the reference poses are settled ones in every episode.
+	phase = PHASE_CLEARING
 	episode_t0 = GetTime()
 	SetString(READY_KEY, "1")
 end
@@ -170,11 +209,12 @@ function tick()
 	-- Host command channel: reset on the rising edge of the file appearing, so the
 	-- host can hold the file until it observes the episode counter advance.
 	local want_reset = HasFile(RESET_FILE)
-	if want_reset and not reset_seen then
-		reset_episode()
+	if want_reset and not reset_seen and phase == PHASE_LIVE then
+		begin_reset()
 	end
 	reset_seen = want_reset
 
+	advance_phase()
 	publish_state()
 end
 

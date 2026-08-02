@@ -38,6 +38,7 @@ def test_ffmpeg_cmd_exact_argv(tmp_path):
     out = tmp_path / "ep_001.mp4"
     assert ffmpeg_cmd(":1", (1920, 1080), 30, out) == [
         "ffmpeg",
+        "-y",
         "-f",
         "x11grab",
         "-framerate",

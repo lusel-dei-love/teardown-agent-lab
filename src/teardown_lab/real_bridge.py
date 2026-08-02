@@ -107,8 +107,12 @@ class RealBridge:
             deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
                 state = self._read_once()
-                if state is not None and (
-                    target_episode is None or state.episode >= target_episode
+                # Wait for a LIVE frame: mid-reset the tower is being rebuilt and its
+                # blocks are still settling, so any displacement read now is spurious.
+                if (
+                    state is not None
+                    and state.live
+                    and (target_episode is None or state.episode >= target_episode)
                 ):
                     return state
                 self._sleep(self.poll_interval)

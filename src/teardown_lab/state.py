@@ -47,6 +47,13 @@ class GameState:
     # This is the egocentric view a policy acts on; world positions above are what the
     # referee measures displacement against.
     blocks_local: list[Vec3] = field(default_factory=list)
+    # 0 live, 1 clearing, 2 settling. Only a live frame carries meaningful reference
+    # poses: during a reset the tower is mid-rebuild and any displacement is spurious.
+    phase: int = 0
+
+    @property
+    def live(self) -> bool:
+        return self.phase == 0
 
     def to_dict(self) -> dict:
         return {

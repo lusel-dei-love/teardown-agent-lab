@@ -6,9 +6,10 @@ import pytest
 from teardown_lab.savegame import PayloadError, extract_payload, parse_payload
 
 PAYLOAD = (
-    "42|1.500|3|3|1.000,2.000,3.000|90.000,-5.000|"
+    "42|1.500|3|3|1.000,2.000,3.000|90.000,-5.000|0|"
     "0.100,0.200,0.300;1.100,1.200,1.300|"
-    "0.000,0.000,0.000;1.000,1.000,1.000"
+    "0.000,0.000,0.000;1.000,1.000,1.000|"
+    "0.500,0.000,-2.000;0.600,0.000,-2.100"
 )
 
 # Mirrors the real file: the mod's keys are scoped under local-<modfolder>.
@@ -55,28 +56,38 @@ def test_parse_payload_round_trips_fields():
 
 
 def test_parse_payload_rejects_block_count_mismatch():
-    bad = PAYLOAD.rsplit("|", 1)[0] + "|0.000,0.000,0.000"
+    fields = PAYLOAD.split("|")
+    fields[8] = "0.000,0.000,0.000"  # one spawn pose for two current poses
     with pytest.raises(PayloadError, match="mismatch"):
-        parse_payload(bad)
+        parse_payload("|".join(fields))
 
 
 def test_parse_payload_rejects_wrong_field_count():
-    with pytest.raises(PayloadError, match="8 or 9 fields"):
+    with pytest.raises(PayloadError, match="10 fields"):
         parse_payload("1|2|3")
 
 
+def test_phase_marks_non_live_frames():
+    # A settling frame must not be treated as episode state: the tower is mid-rebuild.
+    settling = PAYLOAD.replace("|90.000,-5.000|0|", "|90.000,-5.000|2|")
+    state = parse_payload(settling)
+    assert state.phase == 2
+    assert not state.live
+    assert parse_payload(PAYLOAD).live
+
+
 def test_parse_payload_reads_camera_space_blocks():
-    payload = PAYLOAD + "|0.500,0.000,-2.000;0.600,0.000,-2.100"
-    state = parse_payload(payload)
+    state = parse_payload(PAYLOAD)
     assert len(state.blocks_local) == 2
     # Camera space: +x right, -z forward, so the tower sits ahead and slightly right.
     assert state.blocks_local[0] == pytest.approx((0.5, 0.0, -2.0))
 
 
-def test_parse_payload_without_camera_space_still_parses():
-    # An older mod build emits 8 fields; the host must not hard-fail on it.
-    state = parse_payload(PAYLOAD)
-    assert state.blocks_local == []
+def test_parse_payload_rejects_a_stale_mod_layout():
+    # A build predating the phase field must fail loudly, not be misread.
+    stale = "|".join(PAYLOAD.split("|")[:8])
+    with pytest.raises(PayloadError):
+        parse_payload(stale)
 
 
 def test_payload_contains_no_xml_metacharacters():
