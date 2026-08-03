@@ -110,6 +110,12 @@ def collect_episode(
 
 
 def save_dataset(path: Path, buffers: list[EpisodeBuffer], results: list[dict]) -> dict:
+    # A run that loses its first episode has nothing to concatenate; report that rather
+    # than raising over the top of the original failure.
+    buffers = [b for b in buffers if len(b)]
+    if not buffers:
+        return {"samples": 0, "episodes": 0, "path": str(path), "note": "no episodes collected"}
+
     pixels = np.concatenate([np.asarray(b.pixels, dtype=np.uint8) for b in buffers])
     proprio = np.concatenate([np.asarray(b.proprio, dtype=np.float32) for b in buffers])
     actions = np.concatenate([np.asarray(b.actions, dtype=np.float32) for b in buffers])

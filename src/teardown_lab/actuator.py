@@ -385,22 +385,34 @@ def _safe_children(window):
 
 
 def find_game_window(display: str) -> int | None:
-    """Window id of the Teardown window on `display`, matched by WM_CLASS, or None."""
+    """Window id of the real Teardown window on `display`, or None.
+
+    The game creates several windows sharing WM_CLASS, including a 1x1 unmapped helper.
+    Returning that one made the visibility check fail permanently: a 1x1 unmapped window
+    can never be read, so the harness concluded the game was hidden while it was in fact
+    running in plain sight. Pick the largest mapped window instead.
+    """
+    from Xlib import X
     from Xlib import display as xdisplay
 
     conn = xdisplay.Display(display)
     try:
-        root = conn.screen().root
-        pending = [root]
+        best_id, best_area = None, 0
+        pending = [conn.screen().root]
         while pending:
             window = pending.pop()
             try:
                 wm_class = window.get_wm_class()
+                geometry = window.get_geometry()
+                mapped = window.get_attributes().map_state == X.IsViewable
             except Exception:
-                wm_class = None
-            if wm_class and WINDOW_CLASS in wm_class:
-                return window.id
-            pending.extend(window.query_tree().children)
-        return None
+                pending.extend(_safe_children(window))
+                continue
+            if wm_class and WINDOW_CLASS in wm_class and mapped and geometry.width > 300:
+                area = geometry.width * geometry.height
+                if area > best_area:
+                    best_id, best_area = window.id, area
+            pending.extend(_safe_children(window))
+        return best_id
     finally:
         conn.close()
