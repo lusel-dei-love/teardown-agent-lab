@@ -7,19 +7,55 @@ import subprocess
 import time
 from pathlib import Path
 
-from teardown_lab.actuator import ensure_game_visible, focus_game_window
+from teardown_lab.actuator import ensure_game_visible, find_game_window, focus_game_window
 from teardown_lab.xdisplay import detect_display
 
 APP_ID = "1167630"
 GAME_PROCESS = "teardown.exe"
 STEAM_BIN = "/usr/games/steam"
 
-# Menu coordinates at 1920x1080, verified by screenshot. Each is confirmed by state
-# rather than trusted blindly - see drive_into_level.
-PLAY_BUTTON = (609, 76)
-SANDBOX_BUTTON = (609, 255)
-FIRST_LEVEL = (513, 600)
-CHARACTER_SELECT = (1743, 90)
+# Menu positions as FRACTIONS of the game window, calibrated by screenshot at 1920x1080.
+# Absolute pixels do not survive: this box has no monitor attached, so after a reboot the
+# X screen came back as a virtual 3840x2160 and every hardcoded coordinate was 2x off
+# (and offset, since the window is not at the origin). Fractions of the live window
+# geometry are resolution-independent.
+PLAY_BUTTON = (609 / 1920, 76 / 1080)
+SANDBOX_BUTTON = (609 / 1920, 255 / 1080)
+FIRST_LEVEL = (513 / 1920, 600 / 1080)
+# NOT a click target. The character screen's "Select" sits at (1743, 90), which on the
+# MAIN MENU is the Quit button - so whenever an earlier click failed to land, the blind
+# sequence quit the game (twice). Confirm that screen with Enter instead: harmless on
+# every screen it can reach.
+CHARACTER_SELECT = (1743 / 1920, 90 / 1080)
+
+
+def window_rect(display: str) -> tuple[int, int, int, int] | None:
+    """(x, y, width, height) of the game window in root coordinates."""
+    from Xlib import display as xdisplay
+
+    window_id = find_game_window(display)
+    if window_id is None:
+        return None
+    conn = xdisplay.Display(display)
+    try:
+        window = conn.create_resource_object("window", window_id)
+        geometry = window.get_geometry()
+        origin = window.translate_coords(conn.screen().root, 0, 0)
+        # translate_coords returns the offset OF the root relative to the window, so the
+        # window's own root-space origin is its negation.
+        return (-origin.x, -origin.y, geometry.width, geometry.height)
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
+def to_pixels(display: str, fraction: tuple[float, float]) -> tuple[int, int] | None:
+    rect = window_rect(display)
+    if rect is None:
+        return None
+    x, y, width, height = rect
+    return (int(x + fraction[0] * width), int(y + fraction[1] * height))
 
 
 def game_running() -> bool:
@@ -178,12 +214,24 @@ def drive_into_level(display: str, bridge, timeout: float = 240.0) -> bool:
     _key(display, "KEY_SPACE")  # dismiss the photosensitivity warning on first boot
     time.sleep(3)
 
-    for step in (PLAY_BUTTON, SANDBOX_BUTTON, FIRST_LEVEL, CHARACTER_SELECT):
+    for step in (PLAY_BUTTON, SANDBOX_BUTTON, FIRST_LEVEL):
         if time.monotonic() > deadline:
             return False
         ensure_game_visible(display)
-        _click(display, step)
+        point = to_pixels(display, step)
+        if point is None:
+            return False
+        _click(display, point)
         time.sleep(6)
+        if in_level(bridge, timeout=2.0):
+            return True
+
+    # Confirm character selection with the keyboard, never with the coordinate.
+    for _ in range(3):
+        if time.monotonic() > deadline:
+            return False
+        _key(display, "KEY_RETURN")
+        time.sleep(8)
         if in_level(bridge, timeout=2.0):
             return True
 
