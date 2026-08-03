@@ -143,6 +143,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("runs/teacher_dataset.npz"))
     parser.add_argument("--display", default=":1")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--checkpoint-every", type=int, default=20)
     parser.add_argument(
         "--hard-reset-every",
         type=int,
@@ -187,9 +188,20 @@ def main() -> None:
                     print("-- hard reset timed out; continuing", flush=True)
                 focus_game_window(args.display)
             scramble = int(rng.integers(0, args.scramble_max + 1))
-            buf, res = collect_episode(env, teacher, rng, scramble, args.max_steps)
+            try:
+                buf, res = collect_episode(env, teacher, rng, scramble, args.max_steps)
+            except RuntimeError as exc:
+                # The game can die mid-run (it crashed once at episode 41 of 200).
+                # Stop cleanly and keep everything collected so far.
+                print(f"-- collection stopped at episode {ep + 1}: {exc}", flush=True)
+                break
             buffers.append(buf)
             results.append(res)
+
+            # Checkpoint. Saving only at the end means a crash costs the whole run.
+            if args.checkpoint_every and len(buffers) % args.checkpoint_every == 0:
+                partial = save_dataset(args.out, buffers, results)
+                print(f"-- checkpoint: {partial['samples']} samples saved", flush=True)
             print(
                 f"ep {ep + 1:3d}/{args.episodes}  steps={res['steps']:3d} "
                 f"scramble={scramble:2d} success={res['success']} "
