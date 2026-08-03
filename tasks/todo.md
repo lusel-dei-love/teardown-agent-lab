@@ -32,6 +32,12 @@
       3. teacher ceiling: ~57% success means even perfect imitation caps there.
       4. no motion cue in the observation: single frames + proprio velocity. Stack 2-4
          frames so the student can see blocks falling.
+- [ ] **BLOCKER for 200-episode runs: supervise the game process.** A 200-episode attempt
+      reached episode 41 (24 successes, 59%) before Teardown hard-crashed; Steam then
+      refused to relaunch it. Collection now checkpoints, so a crash costs one chunk
+      rather than everything, but unattended runs need: detect process death -> relaunch
+      Steam+game -> drive back into a sandbox level -> resume. Until then, collect in
+      chunks of <=60 episodes with the game restarted between them.
 
 ## M2 — training + eval
 - [ ] train_sac.py (SB3) with staged checkpoints (0/25/50/100%)

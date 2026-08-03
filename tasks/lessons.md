@@ -29,6 +29,16 @@
   authoritative (it also proved `Spawn()` exists despite the modding page saying runtime
   spawning is impossible). `IsBodyHandle` was invented from a plausible guess and does
   not exist - grep `script_defs.lua` for every symbol before writing Lua.
+- **2026-08-03, the game itself is the fragile component.** Teardown hard-crashed
+  mid-`Spawn` after ~30 h of session and ~90 episodes, with no error in log.txt - just a
+  truncated line. Our reset spawns and deletes 9 bodies per episode, so a long run churns
+  thousands of entities. Anything running unattended for an hour must supervise the GAME
+  PROCESS (detect death, relaunch, drive back into a level, resume from checkpoint), not
+  just the level. Steam also frequently refuses to relaunch the game afterwards and needs
+  a full client restart.
+- **2026-08-03, checkpoint long data collection.** 41 episodes were lost to that crash
+  because the dataset was only written at the end. Any run measured in tens of minutes
+  must persist incrementally.
 - **2026-08-01, process matching:** `pgrep -f teardown` matched this session's own tmux
   session name and a kernel thread (`oom_reaper`); a "game process is up" signal was a
   false positive for ~5 min. Match full binary paths (`teardown.exe`) and confirm with a
