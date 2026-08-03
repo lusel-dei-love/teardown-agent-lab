@@ -12,6 +12,7 @@ import numpy as np
 
 from teardown_lab.pixel_env import ACTION_DIM, DECLARE_INDEX, TeardownPixelEnv
 from teardown_lab.teacher import PrivilegedTeacher
+from teardown_lab.xdisplay import detect_display
 
 
 @dataclass
@@ -141,7 +142,7 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int, default=250)
     parser.add_argument("--scramble-max", type=int, default=25)
     parser.add_argument("--out", type=Path, default=Path("runs/teacher_dataset.npz"))
-    parser.add_argument("--display", default=":1")
+    parser.add_argument("--display", default=detect_display())
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--checkpoint-every", type=int, default=20)
     parser.add_argument(
@@ -161,6 +162,7 @@ def main() -> None:
     from teardown_lab.frames import FrameGrabber
     from teardown_lab.pixel_env import PixelEnvConfig
     from teardown_lab.real_bridge import RealBridge
+    from teardown_lab.supervisor import ensure_playable
 
     rng = np.random.default_rng(args.seed)
     env = TeardownPixelEnv(
@@ -171,6 +173,10 @@ def main() -> None:
         refocus=lambda: focus_game_window(args.display),
     )
     teacher = PrivilegedTeacher()
+
+    # Make sure we are actually in a level before the first episode.
+    if not ensure_playable(args.display, env.bridge):
+        raise SystemExit("could not bring the game to a playable level")
 
     buffers, results = [], []
     started = time.time()
@@ -191,10 +197,15 @@ def main() -> None:
             try:
                 buf, res = collect_episode(env, teacher, rng, scramble, args.max_steps)
             except RuntimeError as exc:
-                # The game can die mid-run (it crashed once at episode 41 of 200).
-                # Stop cleanly and keep everything collected so far.
-                print(f"-- collection stopped at episode {ep + 1}: {exc}", flush=True)
-                break
+                # The game can die mid-run (it did, at episode 41 of 200). Recover the
+                # process and carry on rather than losing the rest of the run; the data
+                # already collected is checkpointed either way.
+                print(f"-- episode {ep + 1} lost: {exc}", flush=True)
+                if not ensure_playable(args.display, env.bridge):
+                    print("-- could not recover the game; stopping", flush=True)
+                    break
+                print("-- game recovered; continuing", flush=True)
+                continue
             buffers.append(buf)
             results.append(res)
 

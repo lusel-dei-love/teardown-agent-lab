@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from teardown_lab.pixel_env import ACTION_DIM, DECLARE_INDEX
+from teardown_lab.xdisplay import detect_display
 
 DEFAULT_SEEDS = list(range(1, 11))
 
@@ -69,7 +70,7 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("runs/eval_student.json"))
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--max-steps", type=int, default=250)
-    parser.add_argument("--display", default=":1")
+    parser.add_argument("--display", default=detect_display())
     args = parser.parse_args()
 
     from teardown_lab.actuator import (

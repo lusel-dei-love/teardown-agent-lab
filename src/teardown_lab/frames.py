@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from teardown_lab.xdisplay import detect_display
+
 # Small enough to train on and to keep the grab+resize inside the control-step budget;
 # large enough that a 0.5 m block displacement is visible.
 FRAME_W = 128
@@ -18,8 +20,8 @@ class FrameGrabber:
     these pixels, never through the privileged bridge.
     """
 
-    def __init__(self, display: str = ":1", width: int = FRAME_W, height: int = FRAME_H):
-        self.display = display
+    def __init__(self, display: str | None = None, width: int = FRAME_W, height: int = FRAME_H):
+        self.display = display or detect_display()
         self.width = width
         self.height = height
         self._sct = None
