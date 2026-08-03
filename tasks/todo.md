@@ -32,7 +32,15 @@
       3. teacher ceiling: ~57% success means even perfect imitation caps there.
       4. no motion cue in the observation: single frames + proprio velocity. Stack 2-4
          frames so the student can see blocks falling.
-- [ ] **BLOCKER for 200-episode runs: supervise the game process.** A 200-episode attempt
+- [x] supervisor: dead game -> playable level in 76 s (process, Steam, workspace, menus)
+- [x] runtime X display detection (number moves across reboots)
+- [x] find the largest MAPPED game window; freshness-checked in_level
+- [ ] **BLOCKED: the game is at the main menu behind an authentication dialog after the
+      reboot, and its window is no longer 1920x1080.** The supervisor's menu coordinates
+      are absolute, so they cannot work until the window is restored to fullscreen 1080p
+      and the dialog dismissed. Fix: derive click points from the live window geometry
+      instead of constants, and teach drive_into_level to dismiss a modal first.
+- [ ] (superseded) supervise the game process A 200-episode attempt
       reached episode 41 (24 successes, 59%) before Teardown hard-crashed; Steam then
       refused to relaunch it. Collection now checkpoints, so a crash costs one chunk
       rather than everything, but unattended runs need: detect process death -> relaunch

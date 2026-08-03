@@ -151,9 +151,19 @@ def _key(display: str, key_name: str) -> None:
 
 
 def in_level(bridge, timeout: float = 5.0) -> bool:
-    """True if the mod is publishing live state, i.e. a level is actually loaded."""
-    state = bridge.read_state(timeout=timeout)
-    return state is not None and state.live
+    """True if the mod is publishing FRESH live state, i.e. a level really is loaded.
+
+    A single read is not enough. savegame.xml persists across sessions, so after a
+    reboot it still holds the last payload of the previous run - a stale frame that
+    reports phase=live and fooled this check into declaring the game ready while it sat
+    at the main menu. Requiring the tick counter to advance is what distinguishes a
+    running mod from a leftover file.
+    """
+    first = bridge.read_state(timeout=timeout)
+    if first is None or not first.live:
+        return False
+    second = bridge.read_state(timeout=timeout)
+    return second is not None and second.live and second.seq > first.seq
 
 
 def drive_into_level(display: str, bridge, timeout: float = 240.0) -> bool:

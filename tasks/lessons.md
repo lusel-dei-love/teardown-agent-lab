@@ -29,6 +29,18 @@
   authoritative (it also proved `Spawn()` exists despite the modding page saying runtime
   spawning is impossible). `IsBodyHandle` was invented from a plausible guess and does
   not exist - grep `script_defs.lua` for every symbol before writing Lua.
+- **2026-08-03, stale files masquerade as live state.** `savegame.xml` survives reboots,
+  so after a restart it still held the previous session's payload - phase=live, ep=92 -
+  and the readiness check happily declared the game in a level while it sat at the main
+  menu. Any "is it running?" check over a FILE must require the tick counter to advance,
+  never just that a well-formed value exists.
+- **2026-08-03, match the window, not the class.** The game creates several X windows
+  sharing WM_CLASS, including a 1x1 unmapped helper. Matching the first one made the
+  visibility check test a window that can never be read, so the harness reported the game
+  hidden while it ran in plain sight. Pick the largest MAPPED window.
+- **2026-08-03, the X display number is not stable across reboots.** Greeter login gives
+  :1, GDM autologin gives :0. Everything hardcoded :1 and silently addressed a dead
+  display after a reboot. Detect it at runtime from /tmp/.X11-unix.
 - **2026-08-03, the game itself is the fragile component.** Teardown hard-crashed
   mid-`Spawn` after ~30 h of session and ~90 episodes, with no error in log.txt - just a
   truncated line. Our reset spawns and deletes 9 bodies per episode, so a long run churns
