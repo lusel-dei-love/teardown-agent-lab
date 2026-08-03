@@ -35,12 +35,17 @@
 - [x] supervisor: dead game -> playable level in 76 s (process, Steam, workspace, menus)
 - [x] runtime X display detection (number moves across reboots)
 - [x] find the largest MAPPED game window; freshness-checked in_level
-- [ ] **BLOCKED: the game is at the main menu behind an authentication dialog after the
-      reboot, and its window is no longer 1920x1080.** The supervisor's menu coordinates
-      are absolute, so they cannot work until the window is restored to fullscreen 1080p
-      and the dialog dismissed. Fix: derive click points from the live window geometry
-      instead of constants, and teach drive_into_level to dismiss a modal first.
-- [ ] (superseded) supervise the game process A 200-episode attempt
+- [x] menu targets derived from live window geometry (absolute pixels died at 4K)
+- [x] never click the character-select coordinate: it is Quit on the main menu
+- [ ] **BLOCKED ON HARDWARE: no display output is connected.** Every xrandr output reads
+      `disconnected`, `nvidia-smi` shows display_active Disabled, and Teardown logs
+      `Display resolution: 0x0` then never maps a window. Needs one of:
+      (a) the monitor powered on / cable reseated (no physical access),
+      (b) a dummy HDMI/DP plug, or
+      (c) a forced virtual output - xorg.conf `AllowEmptyInitialConfiguration` +
+          `ConnectedMonitor`, which needs sudo.
+      Option (c) is the durable fix for an unattended RL box and would also stop the
+      Sunshine bridge breaking the same way. A 200-episode attempt
       reached episode 41 (24 successes, 59%) before Teardown hard-crashed; Steam then
       refused to relaunch it. Collection now checkpoints, so a crash costs one chunk
       rather than everything, but unattended runs need: detect process death -> relaunch

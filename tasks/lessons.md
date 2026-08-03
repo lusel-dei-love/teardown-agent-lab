@@ -41,6 +41,12 @@
 - **2026-08-03, the X display number is not stable across reboots.** Greeter login gives
   :1, GDM autologin gives :0. Everything hardcoded :1 and silently addressed a dead
   display after a reboot. Detect it at runtime from /tmp/.X11-unix.
+- **2026-08-03, a running X server does not mean a usable display.** After the reboot
+  every xrandr output read `disconnected` and `nvidia-smi` reported display_active
+  Disabled, yet X still presented a 3840x2160 screen and screenshots "worked" (of a
+  phantom framebuffer). Teardown logged `Display resolution: 0x0` and never mapped a
+  window - the process ran, so every process-level check said healthy. When a GUI app
+  starts but never maps a window, check for a CONNECTED OUTPUT before debugging the app.
 - **2026-08-03, the game itself is the fragile component.** Teardown hard-crashed
   mid-`Spawn` after ~30 h of session and ~90 episodes, with no error in log.txt - just a
   truncated line. Our reset spawns and deletes 9 bodies per episode, so a long run churns
