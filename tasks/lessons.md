@@ -29,6 +29,12 @@
   authoritative (it also proved `Spawn()` exists despite the modding page saying runtime
   spawning is impossible). `IsBodyHandle` was invented from a plausible guess and does
   not exist - grep `script_defs.lua` for every symbol before writing Lua.
+- **2026-08-04, never regress a binary action with MSE.** The teacher's `swing` is 0/1
+  and on 25% of the time; MSE drove the student to ~0.25 everywhere, and because the env
+  thresholds `swing > 0` that became "swing on 75% of frames". The behaviour looked like
+  a policy that had learned nothing, but the loss was the bug. Binary actions get a BCE
+  head and a probability threshold. Diagnose this by comparing per-dimension mean AND
+  std, teacher vs student: matching means with collapsed std is regression-to-the-mean.
 - **2026-08-03, stale files masquerade as live state.** `savegame.xml` survives reboots,
   so after a restart it still held the previous session's payload - phase=live, ep=92 -
   and the readiness check happily declared the game in a level while it sat at the main

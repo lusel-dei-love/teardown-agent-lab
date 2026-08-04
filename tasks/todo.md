@@ -37,7 +37,25 @@
 - [x] find the largest MAPPED game window; freshness-checked in_level
 - [x] menu targets derived from live window geometry (absolute pixels died at 4K)
 - [x] never click the character-select coordinate: it is Quit on the main menu
-- [ ] **BLOCKED ON HARDWARE: no display output is connected.** Every xrandr output reads
+## M1c — 200-episode run (2026-08-04)
+- [x] display restored (xorg drop-in forces HDMI-0; 1600x900, no EDID so no 1080p mode)
+- [x] collected 200 episodes / 23112 samples / 64% teacher success / 45.6 min, no crashes
+- [x] declare positives 17 -> 1084 (4.7%) after widening the label to every solved frame
+- [x] trained: val control MSE 0.123 -> 0.084, declare recall 0.81
+- [x] evaluated live, 8 episodes per stage -- **STILL DOES NOT BEAT RANDOM**
+      random 12.5% | stage_000 0% | stage_025 0% | stage_050 12.5% | stage_100 12.5%
+      and with declare disabled entirely, stage_100 scores 0/8 -- so the CONTROL policy
+      has not learned the task either; it is not merely a broken declare head.
+- [ ] **NEXT, with evidence: binary actions are being trained as regression.**
+      The teacher's `swing` is binary and on for 25% of frames. MSE drives the student to
+      output ~0.25 everywhere, and the env thresholds `swing = vec[5] > 0`, so the student
+      swings on 74.6% of frames - flailing instead of approaching and striking.
+      `look_dx` shows the same damping (teacher std 0.743 vs student 0.451).
+      Fix: train `swing` and `grab` as BCE classification heads thresholded at p>0.5
+      (exactly what already fixed the declare head), and consider discretising the
+      continuous axes, since MSE on a multimodal action distribution regresses to the
+      mean by construction.
+- [ ] (resolved) BLOCKED ON HARDWARE: no display output is connected. Every xrandr output reads
       `disconnected`, `nvidia-smi` shows display_active Disabled, and Teardown logs
       `Display resolution: 0x0` then never maps a window. Needs one of:
       (a) the monitor powered on / cable reseated (no physical access),
