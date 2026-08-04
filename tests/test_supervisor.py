@@ -28,3 +28,15 @@ def test_menu_targets_are_fractions(target):
     x, y = target
     assert 0.0 < x < 1.0
     assert 0.0 < y < 1.0
+
+
+def test_steam_binary_resolves_an_existing_launcher():
+    # The 24.04 upgrade deleted /usr/games/steam while ~/.steam kept working, so this
+    # must never be a hardcoded path.
+    from pathlib import Path
+
+    from teardown_lab.supervisor import STEAM_CANDIDATES, steam_binary
+
+    assert len(STEAM_CANDIDATES) > 1
+    resolved = steam_binary()
+    assert Path(resolved).exists()

@@ -27,6 +27,26 @@ Working:
    `systemctl --user enable --now flowai-live.service` when the GPU is free again.
 5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
 
+## BLOCKED (2026-08-05): Steam does not survive the 24.04 upgrade
+
+The dist-upgrade REMOVED the steam package (`dpkg -l | grep steam` is empty,
+`/usr/games/steam` is gone) while leaving the user-space install at
+`~/.steam/steam/steam.sh`. That script bootstraps fine ("Steam runtime environment
+up-to-date!") and stays alive in the foreground, but no client process persists when
+detached, so nothing can launch the game.
+
+i386 is enabled and `/lib/ld-linux.so.2` exists, so this is NOT the usual missing-32-bit
+cause. It needs a proper reinstall (sudo, Louis):
+
+```bash
+sudo apt update && sudo apt install steam-installer     # or: steam
+```
+
+Then re-verify: `uv run pytest -q`, then the strike check below.
+Everything else survived the upgrade cleanly: CUDA (cu126) still works, the xorg
+drop-in still forces HDMI-0, 92 tests pass. Driver is STILL 565.57.01 - the upgrade did
+not cross 570 - so the Sunshine pin and the cu126 torch pin both stay as they are.
+
 ## FIRST THING after the 24.04 upgrade
 
 Strike attribution (lever 2) is committed but NOT verified live. The mod now credits a

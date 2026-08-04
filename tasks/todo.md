@@ -3,6 +3,17 @@
 
 # todo
 
+## M6 — post-24.04 (2026-08-05)
+- [x] upgrade survived: CUDA cu126 works, xorg drop-in still forces HDMI-0, 92 tests pass
+- [x] driver still 565.57.01 (upgrade does NOT cross 570) -> Sunshine + torch pins stand
+- [x] supervisor resolves the Steam launcher at runtime; the upgrade deleted
+      /usr/games/steam and the hardcoded path crashed every launch
+- [ ] **BLOCKED: Steam package removed by the dist-upgrade.** ~/.steam/steam/steam.sh
+      bootstraps and survives in the foreground but no client persists when detached, so
+      the game cannot be launched. i386 + 32-bit loader are present, so it is not the
+      usual missing-lib cause. Needs `sudo apt install steam-installer` (Louis).
+- [ ] then: verify strike attribution (teacher ~85%, blind ~0), recollect, retrain
+
 ## M5 — strike attribution (lever 2, 2026-08-04) — NEEDS LIVE VERIFICATION
 - [x] mod credits a block only if it moved while swinging within 3 m; publishes a strike
       flag per block (payload now 11 fields). Referee requires displaced AND struck.

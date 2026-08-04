@@ -12,7 +12,23 @@ from teardown_lab.xdisplay import detect_display
 
 APP_ID = "1167630"
 GAME_PROCESS = "teardown.exe"
-STEAM_BIN = "/usr/games/steam"
+# Resolved at runtime, never hardcoded: the 24.04 upgrade removed the steam .deb, so
+# /usr/games/steam vanished while the user-space install under ~/.steam kept working.
+STEAM_CANDIDATES = (
+    "/usr/games/steam",
+    "/usr/bin/steam",
+    str(Path.home() / ".steam/steam/steam.sh"),
+)
+
+
+def steam_binary() -> str:
+    """First Steam launcher that actually exists on this machine."""
+    for candidate in STEAM_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+    raise FileNotFoundError(
+        "no Steam launcher found; tried " + ", ".join(STEAM_CANDIDATES)
+    )
 
 # Menu positions as FRACTIONS of the game window, calibrated by screenshot at 1920x1080.
 # Absolute pixels do not survive: this box has no monitor attached, so after a reboot the
@@ -94,7 +110,7 @@ def _launch(display: str, args: list[str]) -> None:
 def start_steam(display: str, wait_s: float = 120.0) -> bool:
     if steam_running():
         return True
-    _launch(display, [STEAM_BIN])
+    _launch(display, [steam_binary()])
     deadline = time.monotonic() + wait_s
     while time.monotonic() < deadline:
         if steam_running():
@@ -115,7 +131,7 @@ def start_game(display: str, wait_s: float = 300.0) -> bool:
     if not start_steam(display):
         return False
 
-    _launch(display, [STEAM_BIN, f"steam://rungameid/{APP_ID}"])
+    _launch(display, [steam_binary(), f"steam://rungameid/{APP_ID}"])
     deadline = time.monotonic() + wait_s
     while time.monotonic() < deadline:
         if game_running():
@@ -124,7 +140,7 @@ def start_game(display: str, wait_s: float = 300.0) -> bool:
 
     # Second attempt with a clean Steam client.
     subprocess.run(
-        [STEAM_BIN, "-shutdown"],
+        [steam_binary(), "-shutdown"],
         env=_child_env(display),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -132,7 +148,7 @@ def start_game(display: str, wait_s: float = 300.0) -> bool:
     time.sleep(30)
     if not start_steam(display):
         return False
-    _launch(display, [STEAM_BIN, f"steam://rungameid/{APP_ID}"])
+    _launch(display, [steam_binary(), f"steam://rungameid/{APP_ID}"])
     deadline = time.monotonic() + wait_s
     while time.monotonic() < deadline:
         if game_running():
