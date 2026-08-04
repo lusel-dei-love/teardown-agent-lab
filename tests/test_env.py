@@ -71,7 +71,8 @@ def test_step_actuates_and_sleeps_on_the_hz_grid():
     env.reset(seed=1)
     backend.calls.clear()
     env.step(np.array([0.5, -0.5, 0.0, 1.0, 1.0, -1.0], dtype=np.float32))
-    assert ("move_mouse", 100, -100) in backend.calls
+    scale = env.actuator.look_scale
+    assert ("move_mouse", round(0.5 * scale), round(-0.5 * scale)) in backend.calls
     assert ("key", "w", True) in backend.calls
     assert ("button", "right", True) in backend.calls  # grab > 0
     assert ("button", "left", True) not in backend.calls  # swing < 0

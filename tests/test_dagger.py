@@ -9,7 +9,7 @@ from teardown_lab.dagger import concat_datasets
 
 def make_base(n=5):
     return {
-        "pixels": np.zeros((n, 72, 128, 3), dtype=np.uint8),
+        "pixels": np.zeros((n, 126, 224, 3), dtype=np.uint8),
         "proprio": np.zeros((n, 5), dtype=np.float32),
         "actions": np.zeros((n, 7), dtype=np.float32),
         "on_policy": np.ones(n, dtype=bool),
@@ -22,7 +22,7 @@ def make_buffer(n=3):
     buf = EpisodeBuffer()
     for _ in range(n):
         obs = {
-            "pixels": np.ones((72, 128, 3), dtype=np.uint8),
+            "pixels": np.ones((126, 224, 3), dtype=np.uint8),
             "proprio": np.ones(5, dtype=np.float32),
         }
         buf.add(obs, np.ones(7, dtype=np.float32), on_policy=False, solved=False)

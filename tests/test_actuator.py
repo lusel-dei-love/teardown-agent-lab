@@ -42,9 +42,13 @@ def test_uinput_backend_covers_every_emitted_name():
 
 
 def test_look_scales_to_pixels():
+    # Derived from the actuator's own look_scale: that value is a tuning constant
+    # (lowered once already to stop the camera overshooting), and a test that hardcodes
+    # the product breaks on every retune without describing any real behaviour.
     actuator, backend = make()
     actuator.apply(Action(look_dx=0.5, look_dy=-0.25))
-    assert ("move_mouse", 100, -50) in backend.calls
+    scale = actuator.look_scale
+    assert ("move_mouse", round(0.5 * scale), round(-0.25 * scale)) in backend.calls
 
 
 def test_look_scale_is_configurable():

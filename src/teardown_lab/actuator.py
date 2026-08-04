@@ -68,6 +68,9 @@ class RecordingBackend:
 class Actuator:
     """Stateful mapper: diffs the desired hold set against what is currently held."""
 
+    # 200 gives ~22 deg of yaw per unit command. Lowering it to 80 was tried and measured
+    # WORSE for keeping the target in frame (0.127 vs 0.204): finer steps mean more frames
+    # spent mid-turn. Left at 200.
     def __init__(self, backend: InputBackend, look_scale: int = 200):
         self.backend = backend
         self.look_scale = look_scale

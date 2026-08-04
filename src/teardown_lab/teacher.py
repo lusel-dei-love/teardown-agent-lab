@@ -53,6 +53,14 @@ class PrivilegedTeacher:
         bearing = math.degrees(math.atan2(float(right), float(forward)))
         action[0] = float(np.clip(bearing / 45.0, -1.0, 1.0))
 
+        # Pitch toward the target too. The teacher previously left look_dy at exactly 0,
+        # so as it closed in, the tower - which sits at ground level while the camera is
+        # at eye height - dropped below the bottom of the 90 deg FOV. The demonstrations
+        # then showed the student an empty road while commanding a confident swing.
+        up = float(centroid[1])
+        elevation = math.degrees(math.atan2(up, max(distance, 1e-3)))
+        action[1] = float(np.clip(-elevation / 45.0, -1.0, 1.0))
+
         if success(state, self.k, self.threshold):
             self._solved_for += 1
             # Turn toward the wreckage while verifying, then declare.

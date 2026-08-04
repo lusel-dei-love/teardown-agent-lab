@@ -40,7 +40,7 @@ def test_observation_contains_no_world_state():
     obs, _ = env.reset()
 
     assert set(obs) == {"pixels", "proprio"}
-    assert obs["pixels"].shape == (72, 128, 3)
+    assert obs["pixels"].shape == (126, 224, 3)
     # Proprioception is exactly yaw, pitch and own velocity - 5 numbers, no block data.
     assert obs["proprio"].shape == (5,)
     assert obs["proprio"].tolist() == pytest.approx([30.0, -4.0, 0.0, 0.0, 0.0])

@@ -17,14 +17,14 @@ from teardown_lab.student import (
 
 def fake_obs():
     return {
-        "pixels": np.full((72, 128, 3), 120, dtype=np.uint8),
+        "pixels": np.full((126, 224, 3), 120, dtype=np.uint8),
         "proprio": np.zeros(PROPRIO_DIM, dtype=np.float32),
     }
 
 
 def test_preprocess_pixels_to_nchw_unit_range():
-    batch = preprocess_pixels(np.full((72, 128, 3), 255, dtype=np.uint8))
-    assert batch.shape == (1, 3, 72, 128)
+    batch = preprocess_pixels(np.full((126, 224, 3), 255, dtype=np.uint8))
+    assert batch.shape == (1, 3, 126, 224)
     assert float(batch.max()) == pytest.approx(1.0)
 
 

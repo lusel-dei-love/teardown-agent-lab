@@ -9,8 +9,8 @@ from teardown_lab.xdisplay import detect_display
 
 # Small enough to train on and to keep the grab+resize inside the control-step budget;
 # large enough that a 0.5 m block displacement is visible.
-FRAME_W = 128
-FRAME_H = 72
+FRAME_W = 224
+FRAME_H = 126
 
 
 class FrameGrabber:
