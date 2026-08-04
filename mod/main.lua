@@ -9,8 +9,15 @@ local BLOCK_M = BLOCK_VOX / 10
 local COLS = 3
 local ROWS = 3
 local N_BLOCKS = COLS * ROWS
-local TOWER_DIST = 4.0 -- metres in front of the player spawn
+local TOWER_DIST_MIN = 3.5
+local TOWER_DIST_MAX = 6.0
 local JITTER_M = 0.05  -- per-episode initial-state randomisation
+-- Randomise WHERE the tower is, per episode, seeded by the episode index.
+-- With the tower always dead ahead, a constant "walk forward and swing" - no vision at
+-- all - scored 80%, matching the trained student, so the task could not tell perception
+-- from a reflex. Spawning it on a random bearing forces the agent to actually look for
+-- it: the same blind policy then scores 0%.
+local TOWER_BEARING_SPREAD = math.pi -- +/- 180 deg around the player's facing
 
 -- Host command channel: the host creates/removes these files in the mod folder.
 local RESET_FILE = "MOD/reset.txt"
@@ -115,9 +122,28 @@ local function record_reference_poses()
 	end
 end
 
+-- Where this episode's tower goes: a seeded bearing and distance around the player
+-- spawn, so episode N always yields the same layout but successive episodes differ.
+local function pick_tower_origin()
+	local angle = GetRandomFloat(-TOWER_BEARING_SPREAD, TOWER_BEARING_SPREAD)
+	local dist = GetRandomFloat(TOWER_DIST_MIN, TOWER_DIST_MAX)
+	local fwd = TransformToParentVec(player_spawn, Vec(0, 0, -1))
+	-- Rotate the spawn facing by `angle` about the vertical axis.
+	local cos_a, sin_a = math.cos(angle), math.sin(angle)
+	local dir = Vec(
+		fwd[1] * cos_a - fwd[3] * sin_a,
+		0,
+		fwd[1] * sin_a + fwd[3] * cos_a
+	)
+	local origin = VecAdd(player_spawn.pos, VecScale(dir, dist))
+	origin[2] = player_spawn.pos[2]
+	return origin
+end
+
 -- Build the tower: COLS wide, ROWS high, centred on tower_origin.
 local function build_tower()
 	SetRandomSeed(episode)
+	tower_origin = pick_tower_origin()
 	for idx = 0, N_BLOCKS - 1 do
 		local row = math.floor(idx / COLS)
 		local col = idx % COLS
@@ -205,10 +231,7 @@ end
 --------------------------------------------------------------------------------
 function init()
 	player_spawn = GetPlayerTransform(0)
-	local fwd = TransformToParentVec(player_spawn, Vec(0, 0, -1))
-	tower_origin = VecAdd(player_spawn.pos, VecScale(fwd, TOWER_DIST))
-	-- Drop the tower base to roughly the player's feet.
-	tower_origin[2] = player_spawn.pos[2]
+	-- tower_origin is chosen per episode in build_tower(), not fixed here.
 
 	-- Episode 0 goes through the same clear/build/settle path as every later reset, so
 	-- the reference poses are settled ones in every episode.
