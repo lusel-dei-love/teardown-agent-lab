@@ -16,7 +16,7 @@ def write_payload(path, seq, episode=0, phase=0):
     blocks = "0.000,0.000,0.000"
     payload = (
         f"{seq}|1.000|{episode}|{episode}|1.000,2.000,3.000|0.000,0.000|{phase}|"
-        f"{blocks}|{blocks}|{blocks}"
+        f"{blocks}|{blocks}|{blocks}|0"
     )
     path.write_text(
         "<registry><savegame><mod><local-teardownlab>"

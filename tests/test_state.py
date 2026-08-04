@@ -24,7 +24,11 @@ def test_to_json_schema():
     assert payload["yaw"] == 0.0
     assert payload["pitch"] == 0.0
     assert len(payload["blocks"]) == 9
-    assert payload["blocks"][0] == {"pos": [-1.0, 0.0, 0.0], "spawn": [-1.0, 0.0, 0.0]}
+    assert payload["blocks"][0] == {
+        "pos": [-1.0, 0.0, 0.0],
+        "spawn": [-1.0, 0.0, 0.0],
+        "struck": False,
+    }
 
 
 def test_from_json_builds_tuples():

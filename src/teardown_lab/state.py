@@ -20,13 +20,20 @@ class BlockState:
 
     pos: Vec3
     spawn: Vec3
+    # True once the AGENT struck this block (moved it while swinging, within reach).
+    # Displacement alone credited accidental bumps, which let a blind policy score 40%.
+    struck: bool = False
 
     def to_dict(self) -> dict:
-        return {"pos": list(self.pos), "spawn": list(self.spawn)}
+        return {"pos": list(self.pos), "spawn": list(self.spawn), "struck": self.struck}
 
     @classmethod
     def from_dict(cls, payload: dict) -> BlockState:
-        return cls(pos=_vec3(payload["pos"]), spawn=_vec3(payload["spawn"]))
+        return cls(
+            pos=_vec3(payload["pos"]),
+            spawn=_vec3(payload["spawn"]),
+            struck=bool(payload.get("struck", False)),
+        )
 
 
 @dataclass(frozen=True)

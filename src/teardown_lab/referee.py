@@ -37,9 +37,26 @@ def tower_centroid(state: GameState) -> np.ndarray:
     return np.array([b.pos for b in state.blocks], dtype=float).mean(axis=0)
 
 
-def success(state: GameState, k: int = 5, threshold: float = 0.5) -> bool:
-    """True once at least `k` blocks sit more than `threshold` metres off their spawn."""
-    return int(np.count_nonzero(displacements(state) > threshold)) >= k
+def struck_and_displaced(state: GameState, threshold: float) -> np.ndarray:
+    """Per-block: moved far enough AND the agent actually hit it.
+
+    Requiring attribution is what stops a policy being credited for blocks it merely
+    wandered into - the failure that let a blind "walk forward and swing" match a
+    trained agent.
+    """
+    displaced = displacements(state) > threshold
+    struck = np.array([b.struck for b in state.blocks], dtype=bool)
+    return displaced & struck
+
+
+def success(state: GameState, k: int = 4, threshold: float = 0.5) -> bool:
+    """True once at least `k` blocks were STRUCK by the agent and displaced.
+
+    Attribution matters: crediting displacement alone let a blind "walk forward and
+    swing" score 40% by wandering into the tower, so the benchmark could not tell an
+    agent that aims from one that stumbles into the target.
+    """
+    return int(np.count_nonzero(struck_and_displaced(state, threshold))) >= k
 
 
 def reward(prev: GameState, curr: GameState, cfg: RewardConfig) -> float:

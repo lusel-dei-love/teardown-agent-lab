@@ -27,7 +27,9 @@ def state_with_displaced_blocks(
             pos = (spawn[0], spawn[1], spawn[2] + dist)
         else:
             pos = spawn
-        blocks.append(BlockState(pos=pos, spawn=spawn))
+        # Displaced blocks in fixtures represent blocks the agent actually hit; the
+        # referee now requires that attribution.
+        blocks.append(BlockState(pos=pos, spawn=spawn, struck=i < n_displaced))
     return GameState(
         t=t,
         seed=seed,

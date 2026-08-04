@@ -3,6 +3,16 @@
 
 # todo
 
+## M5 — strike attribution (lever 2, 2026-08-04) — NEEDS LIVE VERIFICATION
+- [x] mod credits a block only if it moved while swinging within 3 m; publishes a strike
+      flag per block (payload now 11 fields). Referee requires displaced AND struck.
+- [x] live: blind constant policy 40% -> 0/8, exactly the intended effect
+- [ ] **BUT the teacher also went 0/8** - the mod queried InputDown("lmb") and Teardown
+      binds the sledge to "usetool". Fix committed (accept either), NOT verified: the
+      machine was rebooted for the 24.04 upgrade. Expect teacher ~85%, blind ~0.
+- [ ] after it passes: recollect (old datasets score differently under the strike rule),
+      retrain, re-evaluate, update the dashboard
+
 ## M4 — randomised tower bearing (2026-08-04)
 - [x] mod places the tower on a seeded bearing (+/-180 deg) and distance (3.5-6.0 m)
       per episode; bearings measured live spanning -119 to +121 deg

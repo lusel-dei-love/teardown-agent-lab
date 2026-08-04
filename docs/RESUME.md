@@ -27,6 +27,25 @@ Working:
    `systemctl --user enable --now flowai-live.service` when the GPU is free again.
 5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
 
+## FIRST THING after the 24.04 upgrade
+
+Strike attribution (lever 2) is committed but NOT verified live. The mod now credits a
+block only if it moved while the agent was swinging within 3 m. Live before the last fix:
+blind constant policy 40% -> 0/8 (intended), but the teacher also hit 0/8 because the mod
+queried `InputDown("lmb")` while Teardown binds the sledge to `usetool`. The fix accepts
+both names and is committed, unverified.
+
+```bash
+# reload the mod, then expect teacher ~85% and blind ~0
+DISPLAY=:0 uv run python -c "from teardown_lab.real_bridge import RealBridge; print(RealBridge().hard_reset(timeout=120) is not None)"
+```
+If the teacher is still 0, the swing is not being seen at all: publish `InputDown` for
+both names from the mod and check which one the actuator's uinput BTN_LEFT drives.
+
+Once it passes: recollect (the strike rule changes what counts as success, so the old
+datasets are not comparable), retrain, re-evaluate student vs blind vs random, and update
+the dashboard.
+
 ## Next steps, in order
 
 1. **Re-run both baselines with matched budgets.** Cosmos ran 3 episodes x 25 steps and

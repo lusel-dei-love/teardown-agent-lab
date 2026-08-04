@@ -19,6 +19,14 @@ local JITTER_M = 0.05  -- per-episode initial-state randomisation
 -- it: the same blind policy then scores 0%.
 local TOWER_BEARING_SPREAD = math.pi -- +/- 180 deg around the player's facing
 
+-- Credit a block only if the AGENT STRUCK it. Displacement alone gave a blind
+-- "walk forward and swing" 40% - it wandered into the tower and the success rule could
+-- not tell a swing from a bump, so the benchmark rewarded accidents. A block counts only
+-- if it moved while the player was swinging and within reach of it.
+local STRIKE_RANGE = 3.0     -- metres; a sledge cannot reach further
+local SWING_MEMORY_TICKS = 20 -- impact can land a moment after the button goes down
+local MOVE_EPSILON = 0.02    -- metres per tick; below this is settling, not a hit
+
 -- Host command channel: the host creates/removes these files in the mod folder.
 local RESET_FILE = "MOD/reset.txt"
 -- Full level reload. The soft reset above respawns blocks but never repairs the world,
@@ -59,6 +67,10 @@ local PHASE_LIVE, PHASE_CLEARING, PHASE_SETTLING = 0, 1, 2
 local phase = PHASE_CLEARING
 local settle_left = 0
 local SETTLE_TICKS = 30
+
+local struck = {}      -- idx -> true once the agent has hit that block
+local last_pos = {}    -- idx -> previous position, to detect motion
+local swing_ticks = 0  -- counts down from SWING_MEMORY_TICKS while a swing is live
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -114,6 +126,8 @@ end
 -- commanded spawn poses) means normal settling motion never counts as displacement.
 local function record_reference_poses()
 	spawns = {}
+	struck = {}
+	last_pos = {}
 	for idx = 0, N_BLOCKS - 1 do
 		local h = blocks[idx]
 		if h then
@@ -190,6 +204,35 @@ end
 -- seq|t|episode|seed|px,py,pz|yaw,pitch|b0x,b0y,b0z;b1x,...  then spawn poses.
 -- Kept to digits, '.', '-', ',', ';', '|' so rapidxml never sees a metacharacter.
 --------------------------------------------------------------------------------
+-- Attribute motion to the agent's swing. Runs before publishing so the flags describe
+-- the same tick as the positions.
+local function update_strikes()
+	-- Teardown binds the sledge to the "usetool" action; "lmb" alone missed every swing
+	-- and zeroed the teacher as well as the blind policy. Accept either.
+	if InputDown("usetool") or InputDown("lmb") then
+		swing_ticks = SWING_MEMORY_TICKS
+	elseif swing_ticks > 0 then
+		swing_ticks = swing_ticks - 1
+	end
+
+	local player = GetPlayerPos(0)
+	for idx = 0, N_BLOCKS - 1 do
+		local h = blocks[idx]
+		if h then
+			local pos = GetBodyTransform(h).pos
+			local previous = last_pos[idx]
+			if previous then
+				local moved = VecLength(VecSub(pos, previous))
+				local reach = VecLength(VecSub(pos, player))
+				if moved > MOVE_EPSILON and swing_ticks > 0 and reach < STRIKE_RANGE then
+					struck[idx] = true
+				end
+			end
+			last_pos[idx] = pos
+		end
+	end
+end
+
 local function publish_state()
 	seq = seq + 1
 	local p = GetPlayerPos(0)
@@ -206,6 +249,7 @@ local function publish_state()
 	local cur = {}
 	local spn = {}
 	local loc = {}
+	local hit = {}
 	-- Camera space: +x right, +y up, -z forward. Emitting block positions in this frame
 	-- means the host never has to guess the engine's yaw convention, and gives any
 	-- policy an egocentric observation, which is what it can actually act on.
@@ -222,6 +266,7 @@ local function publish_state()
 	parts[#parts + 1] = table.concat(cur, ";")
 	parts[#parts + 1] = table.concat(spn, ";")
 	parts[#parts + 1] = table.concat(loc, ";")
+	parts[#parts + 1] = table.concat(hit, ";")
 
 	SetString(STATE_KEY, table.concat(parts, "|"))
 end
@@ -257,6 +302,9 @@ function tick()
 	reset_seen = want_reset
 
 	advance_phase()
+	if phase == PHASE_LIVE then
+		update_strikes()
+	end
 	publish_state()
 end
 

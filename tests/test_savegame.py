@@ -9,7 +9,8 @@ PAYLOAD = (
     "42|1.500|3|3|1.000,2.000,3.000|90.000,-5.000|0|"
     "0.100,0.200,0.300;1.100,1.200,1.300|"
     "0.000,0.000,0.000;1.000,1.000,1.000|"
-    "0.500,0.000,-2.000;0.600,0.000,-2.100"
+    "0.500,0.000,-2.000;0.600,0.000,-2.100|"
+    "1;0"
 )
 
 # Mirrors the real file: the mod's keys are scoped under local-<modfolder>.
@@ -63,7 +64,7 @@ def test_parse_payload_rejects_block_count_mismatch():
 
 
 def test_parse_payload_rejects_wrong_field_count():
-    with pytest.raises(PayloadError, match="10 fields"):
+    with pytest.raises(PayloadError, match="11 fields"):
         parse_payload("1|2|3")
 
 

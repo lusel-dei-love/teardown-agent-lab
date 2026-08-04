@@ -76,3 +76,23 @@ def test_reward_combines_terms():
         + cfg.success_bonus
     )
     assert referee.reward(prev, curr, cfg) == pytest.approx(expected)
+
+
+def test_success_requires_the_agent_to_have_struck_the_blocks():
+    # Displacement alone credited accidental bumps: a blind "walk forward and swing"
+    # scored 40% by wandering into the tower.
+    from teardown_lab.state import BlockState, GameState
+
+    def tower(struck: bool):
+        blocks = [
+            BlockState(pos=(0.0, 0.0, 2.0), spawn=(0.0, 0.0, 0.0), struck=struck)
+            for _ in range(9)
+        ]
+        return GameState(
+            t=0.0, seed=0, episode=0, player_pos=(0.0, 0.0, 0.0),
+            yaw=0.0, pitch=0.0, blocks=blocks,
+        )
+
+    assert referee.success(tower(struck=True), k=4, threshold=0.5)
+    # Same displacement, no attribution -> no credit.
+    assert not referee.success(tower(struck=False), k=4, threshold=0.5)

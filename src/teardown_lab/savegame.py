@@ -33,10 +33,10 @@ def parse_payload(payload: str) -> GameState:
     # One format, no guessing. Earlier shapes (8 and 9 fields) were ambiguous once
     # `phase` was added, and the mod ships with this parser - a stale build should fail
     # loudly here rather than be silently misread.
-    if len(fields) != 10:
-        raise PayloadError(f"expected 10 fields, got {len(fields)}")
+    if len(fields) != 11:
+        raise PayloadError(f"expected 11 fields, got {len(fields)}")
 
-    seq, t, episode, seed, player, look, phase, cur, spawn, local = fields
+    seq, t, episode, seed, player, look, phase, cur, spawn, local, hit = fields
 
     yaw_s, _, pitch_s = look.partition(",")
     if not pitch_s:
@@ -49,9 +49,17 @@ def parse_payload(payload: str) -> GameState:
             f"block count mismatch: {len(cur_list)} current vs {len(spawn_list)} spawn"
         )
 
+    hit_list = [h for h in hit.split(";") if h]
+    if hit_list and len(hit_list) != len(cur_list):
+        raise PayloadError(
+            f"strike-flag count mismatch: {len(hit_list)} vs {len(cur_list)} blocks"
+        )
+    if not hit_list:
+        hit_list = ["0"] * len(cur_list)
+
     blocks = [
-        BlockState(pos=_vec(c), spawn=_vec(s))
-        for c, s in zip(cur_list, spawn_list, strict=True)
+        BlockState(pos=_vec(c), spawn=_vec(s), struck=(h == "1"))
+        for c, s, h in zip(cur_list, spawn_list, hit_list, strict=True)
     ]
 
     blocks_local = [_vec(v) for v in local.split(";") if v]
