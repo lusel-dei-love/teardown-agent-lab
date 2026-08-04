@@ -3,6 +3,23 @@
 
 # todo
 
+## M4 — randomised tower bearing (2026-08-04)
+- [x] mod places the tower on a seeded bearing (+/-180 deg) and distance (3.5-6.0 m)
+      per episode; bearings measured live spanning -119 to +121 deg
+- [x] collected 220 episodes (186 teacher successes, 85%), trained 20 epochs,
+      val control_mse 0.0732
+- [x] evaluated 10 episodes each: random 30% | constant forward+swing 40% |
+      student 30%. **The student does NOT beat the controls on this variant.**
+- [ ] **Open question: the randomised-BEARING task is still not discriminating.**
+      A blind constant policy scores 40%, because with 220 steps (22 s) it wanders far
+      enough to bump the tower, and the success rule (4 of 9 blocks moved >0.5 m) does
+      not care who moved them or how. The variant that DID discriminate was spinning the
+      camera before handover with the tower left ahead of spawn: constant 0/6 vs the
+      easy-task student 2/6. Next levers:
+      1. shorter episodes (the 22 s budget rewards wandering)
+      2. success must require the agent to have STRUCK the tower, not merely disturbed it
+      3. spawn the tower out of the walkable path so blind forward motion cannot reach it
+
 ## M0 — bridge
 - [x] Verify Teardown modding API external-I/O surface -> registry/savegame.xml at >=49 Hz (see docs/superpowers/research/2026-08-01-bridge-transport.md)
 - [x] Lua mod: 3x3 tagged tower via Spawn() voxbox XML, state via registry, reset via HasFile rising edge
