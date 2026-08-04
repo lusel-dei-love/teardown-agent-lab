@@ -7,6 +7,22 @@ import subprocess
 from pathlib import Path
 
 DEFAULT_SIZE = (1920, 1080)
+
+
+def screen_size(display: str, fallback: tuple[int, int] = DEFAULT_SIZE) -> tuple[int, int]:
+    """Actual screen geometry. Hardcoding it silently breaks every recording when the
+    resolution changes - ffmpeg refuses a capture area larger than the screen."""
+    try:
+        from Xlib import display as xdisplay
+
+        conn = xdisplay.Display(display)
+        try:
+            root = conn.screen().root.get_geometry()
+            return (int(root.width), int(root.height))
+        finally:
+            conn.close()
+    except Exception:
+        return fallback
 DEFAULT_FPS = 30
 
 
@@ -56,13 +72,13 @@ class EpisodeRecorder:
         self,
         display: str,
         out_dir: Path,
-        size: tuple[int, int] = DEFAULT_SIZE,
+        size: tuple[int, int] | None = None,
         fps: int = DEFAULT_FPS,
         popen=subprocess.Popen,
     ):
         self.display = display
         self.out_dir = Path(out_dir)
-        self.size = size
+        self.size = size or screen_size(display)
         self.fps = fps
         self.popen = popen
         self._process = None
