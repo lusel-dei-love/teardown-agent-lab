@@ -71,8 +71,15 @@ class RealBridge:
         except PayloadError:
             return None
 
-        if self._last_seq is not None and state.seq <= self._last_seq:
+        if self._last_seq is not None and state.seq == self._last_seq:
             return None  # same frame re-read
+        if self._last_seq is not None and state.seq < self._last_seq:
+            # The counter went BACKWARDS: the mod restarted (level reload, or a new game
+            # session reading a savegame.xml left by the previous one). Those frames are
+            # the newest ones there are - rejecting them as stale silently starves the
+            # env forever, which looked exactly like "the game is not running".
+            self._last_seq = state.seq
+            return state
         self._last_seq = state.seq
         return state
 

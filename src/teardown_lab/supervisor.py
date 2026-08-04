@@ -169,6 +169,12 @@ def _click(display: str, xy: tuple[int, int]) -> None:
         device.close()
 
 
+# Key names used by the menu driver. Named here so a test can assert they exist in
+# evdev rather than discovering a typo against the live game (KEY_RETURN does not exist;
+# it is KEY_ENTER).
+MENU_KEYS = ("KEY_SPACE", "KEY_ENTER", "KEY_ESC")
+
+
 def _key(display: str, key_name: str) -> None:
     from evdev import UInput
     from evdev import ecodes as e
@@ -230,7 +236,7 @@ def drive_into_level(display: str, bridge, timeout: float = 240.0) -> bool:
     for _ in range(3):
         if time.monotonic() > deadline:
             return False
-        _key(display, "KEY_RETURN")
+        _key(display, "KEY_ENTER")
         time.sleep(8)
         if in_level(bridge, timeout=2.0):
             return True
