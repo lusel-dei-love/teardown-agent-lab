@@ -90,14 +90,31 @@ class HFChatResponder:
                 "content": [{"type": "image"}, {"type": "text", "text": prompt}],
             }
         ]
+        inputs = None
         try:
-            text = self.processor.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+            # Preferred path: let the processor tokenise image+text together. Cosmos 3
+            # Edge only accepts this form; MolmoAct 2 accepts either.
+            messages[0]["content"][0]["image"] = image
+            inputs = self.processor.apply_chat_template(
+                messages,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+            ).to(self.device)
         except Exception:
-            text = prompt
+            inputs = None
 
-        inputs = self.processor(images=image, text=text, return_tensors="pt").to(self.device)
+        if inputs is None:
+            try:
+                text = self.processor.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+            except Exception:
+                text = prompt
+            inputs = self.processor(images=image, text=text, return_tensors="pt").to(
+                self.device
+            )
         with self._torch.inference_mode():
             generated = self.model.generate(
                 **inputs, max_new_tokens=self.max_new_tokens, do_sample=False
@@ -108,9 +125,24 @@ class HFChatResponder:
         return reply
 
 
+# Cosmos 3 Edge thinks out loud before answering - its autoregressive reasoning tower
+# emits several hundred tokens of deliberation, so a 96-token cap truncates it before any
+# JSON appears. 640 is the smallest cap measured to reliably reach a parseable action.
+COSMOS_MAX_NEW_TOKENS = 640
+
+
 def load_cosmos_edge(device: str = "cuda") -> HFChatResponder:
-    """NVIDIA Cosmos 3 Edge, the world-model side of the comparison."""
-    return HFChatResponder(COSMOS_REPO, device=device)
+    """NVIDIA Cosmos 3 Edge, the world-model side of the comparison.
+
+    Needs transformers from git: `cosmos3_edge` is absent from release 5.14.1 and the
+    checkpoint ships neither an auto_map nor modeling code.
+    """
+    return HFChatResponder(
+        COSMOS_REPO,
+        device=device,
+        max_new_tokens=COSMOS_MAX_NEW_TOKENS,
+        auto_class="Cosmos3EdgeForConditionalGeneration",
+    )
 
 
 def load_molmoact2(device: str = "cuda", load_in_4bit: bool = False) -> HFChatResponder:

@@ -75,7 +75,15 @@
 - [x] slow-mo (SetTimeScale) so a ~1.3 s/decision model is judged on decisions, not speed
 - [x] **MolmoAct 2 (VLA): 0-20% success, 0% parse failures, but only 2 DISTINCT replies
       in 120 decisions** - a constant "walk forward and swing", not perception
-- [ ] **Cosmos 3 Edge (world model): BLOCKED.** model_type cosmos3_edge is absent from
+- [x] **Cosmos 3 Edge (world model): 0.67 success (2/3), 0.88 unique replies, 6.3 s per
+      decision.** Needs transformers from git; validated in a throwaway venv so the
+      working MolmoAct 2 path stayed intact. It reasons about the frame explicitly then
+      emits JSON.
+- [x] **Head to head: the VLA is fluent and blind, the world model looks but is slow.**
+      Reply diversity over 75/120 decisions is the solid signal (66 distinct vs 2); the
+      success rates are directional only (n=3 and n=5, and different step budgets).
+- [ ] re-run both with MATCHED episode counts and step budgets before publishing numbers
+- [ ] (was) Cosmos 3 Edge BLOCKED model_type cosmos3_edge is absent from
       transformers 5.14.1 and the checkpoint ships no auto_map and no modeling code
       (MolmoAct 2 ships both). Needs transformers from git main - try it in a throwaway
       venv first, it can break the working MolmoAct 2 path.

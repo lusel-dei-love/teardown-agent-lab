@@ -29,11 +29,12 @@ Working:
 
 ## Next steps, in order
 
-1. **Cosmos 3 Edge baseline is blocked on transformers.** Its `model_type` is
-   `cosmos3_edge`, absent from transformers 5.14.1 (current release), and the checkpoint
-   ships neither an `auto_map` nor modeling code - unlike MolmoAct 2, which ships both.
-   Needs `pip install git+https://github.com/huggingface/transformers`. Do this in a
-   throwaway venv first: it can break the working MolmoAct 2 path.
+1. **Re-run both baselines with matched budgets.** Cosmos ran 3 episodes x 25 steps and
+   MolmoAct 2 5 x 40, so their success rates are directional only. Cosmos needs
+   transformers from git (`model_type cosmos3_edge` is absent from release 5.14.1 and the
+   checkpoint ships no auto_map and no modeling code); it runs from a separate venv with
+   `PYTHONPATH=<repo>/src`, and the game must already be in a level because that venv's
+   newer python-xlib breaks pyautogui (only used for menu clicks).
 2. **Calibrate the student's declare head on rollouts**, not the offline split. It is
    bimodal: at the tuned threshold it fires within ~16 steps and drops success to 10%; at
    0.995 with 4-frame hysteresis it never fires (60%). Sweep the threshold live.
