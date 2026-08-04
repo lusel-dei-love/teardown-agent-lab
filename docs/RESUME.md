@@ -35,12 +35,24 @@ The dist-upgrade REMOVED the steam package (`dpkg -l | grep steam` is empty,
 up-to-date!") and stays alive in the foreground, but no client process persists when
 detached, so nothing can launch the game.
 
-i386 is enabled and `/lib/ld-linux.so.2` exists, so this is NOT the usual missing-32-bit
-cause. It needs a proper reinstall (sudo, Louis):
+**Diagnosed 2026-08-05: `steam-installer` cannot be installed on this machine.**
+The amd64 graphics stack is healthy (libegl-mesa0, libglx0, mesa-libgallium all
+installed at 25.2.8). The blocker is Ubuntu Pro / ESM: `libqt5gui5t64` is installed at
+`5.15.13+dfsg-1ubuntu1+esm1`, an ESM build, and ESM repos are amd64-only. Steam's .deb
+needs i386 multiarch, so every i386 package whose amd64 partner is pinned to an ESM
+version is unsatisfiable - the error surfaces far downstream as
+`mesa-libgallium:i386 : Depends: libllvm20:i386 but it is not installable`.
 
-```bash
-sudo apt update && sudo apt install steam-installer     # or: steam
-```
+Three ways forward, best first:
+1. **Make the existing user-space Steam persist.** `~/.steam/steam/steam.sh` bootstraps
+   fine and survives in the foreground but dies when detached; the 4.4 GB game install
+   is already there. Worth one debugging pass (run it under `setsid` with a pty, or as a
+   `systemctl --user` unit) before touching packages.
+2. **Flatpak Steam** - self-contained, immune to multiarch and ESM entirely:
+   `sudo apt install flatpak && flatpak install flathub com.valvesoftware.Steam`.
+   Costs a 4.4 GB re-download of Teardown into the flatpak sandbox.
+3. Detach the affected packages from ESM (`sudo pro fix` / disabling esm-apps), which
+   trades a working Steam for losing ESM security updates - not recommended.
 
 Then re-verify: `uv run pytest -q`, then the strike check below.
 Everything else survived the upgrade cleanly: CUDA (cu126) still works, the xorg
