@@ -9,15 +9,20 @@ from torch import nn
 
 from teardown_lab.pixel_env import ACTION_DIM, DECLARE_INDEX, PROPRIO_DIM
 
-CONTINUOUS_DIMS = list(range(DECLARE_INDEX))  # 0..5; index 6 is the declare logit
+# Action layout: 0 look_dx, 1 look_dy, 2 move_x, 3 move_y, 4 grab, 5 swing, 6 declare.
+# grab/swing/declare are BINARY in the teacher and the env thresholds them (`> 0`), so
+# they are classified, not regressed. Regressing `swing` with MSE drove the student to
+# its ~0.25 mean everywhere, which crossed the threshold on 74.6% of frames instead of
+# 25% - the policy flailed continuously instead of approaching and striking.
+CONTINUOUS_DIMS = [0, 1, 2, 3]
+BINARY_DIMS = [4, 5, DECLARE_INDEX]
 
 
 class PixelStudent(nn.Module):
     """Frames + proprioception -> action.
 
-    Outputs the six continuous controls through a tanh (matching the env's [-1, 1] box)
-    and the declare decision as a raw logit, since it is a binary choice trained with
-    BCE rather than regression.
+    Outputs the four continuous axes through a tanh (matching the env's [-1, 1] box) and
+    the three binary actions as raw logits, trained with BCE.
     """
 
     def __init__(self, proprio_dim: int = PROPRIO_DIM, action_dim: int = ACTION_DIM):
@@ -45,9 +50,10 @@ class PixelStudent(nn.Module):
         visual = self.encoder(pixels)
         proprio_features = self.proprio(proprio)
         raw = self.head(torch.cat([visual, proprio_features], dim=1))
-        continuous = torch.tanh(raw[:, CONTINUOUS_DIMS])
-        declare_logit = raw[:, DECLARE_INDEX : DECLARE_INDEX + 1]
-        return torch.cat([continuous, declare_logit], dim=1)
+        out = raw.clone()
+        # Squash only the continuous axes; binary dims stay raw logits for BCE.
+        out[:, CONTINUOUS_DIMS] = torch.tanh(raw[:, CONTINUOUS_DIMS])
+        return out
 
 
 def preprocess_pixels(pixels: np.ndarray) -> torch.Tensor:
@@ -86,8 +92,11 @@ class StudentPolicy:
         out = self.model(pixels, proprio)[0].numpy()
         action = np.zeros(ACTION_DIM, dtype=np.float32)
         action[CONTINUOUS_DIMS] = out[CONTINUOUS_DIMS]
-        declare_prob = 1.0 / (1.0 + np.exp(-out[DECLARE_INDEX]))
-        action[DECLARE_INDEX] = 1.0 if declare_prob > self.declare_threshold else -1.0
+        # Binary actions: threshold a probability, then emit the extreme the env expects.
+        for dim in BINARY_DIMS:
+            probability = 1.0 / (1.0 + np.exp(-out[dim]))
+            threshold = self.declare_threshold if dim == DECLARE_INDEX else 0.5
+            action[dim] = 1.0 if probability > threshold else -1.0
         return action
 
     def save(self, path) -> None:

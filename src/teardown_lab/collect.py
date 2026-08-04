@@ -121,6 +121,11 @@ def save_dataset(path: Path, buffers: list[EpisodeBuffer], results: list[dict]) 
     actions = np.concatenate([np.asarray(b.actions, dtype=np.float32) for b in buffers])
     on_policy = np.concatenate([np.asarray(b.on_policy, dtype=bool) for b in buffers])
     solved = np.concatenate([np.asarray(b.solved, dtype=bool) for b in buffers])
+    # Episode index per sample: without it a dataset cannot be sliced by episode, which
+    # any overfit or per-episode analysis needs.
+    episode = np.concatenate(
+        [np.full(len(b), i, dtype=np.int32) for i, b in enumerate(buffers)]
+    )
 
     path.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
@@ -130,6 +135,7 @@ def save_dataset(path: Path, buffers: list[EpisodeBuffer], results: list[dict]) 
         actions=actions,
         on_policy=on_policy,
         solved=solved,
+        episode=episode,
     )
     return {
         "samples": int(len(actions)),

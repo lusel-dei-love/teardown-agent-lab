@@ -13,6 +13,7 @@ from torch import nn
 
 from teardown_lab.pixel_env import DECLARE_INDEX
 from teardown_lab.student import (
+    BINARY_DIMS,
     CONTINUOUS_DIMS,
     PixelStudent,
     StudentPolicy,
@@ -21,9 +22,25 @@ from teardown_lab.student import (
 )
 
 
+def binary_loss(out, target, declare_bce) -> "torch.Tensor":
+    """BCE over every binary action, with the declare head carrying its own weighting.
+
+    grab and swing are binary in the teacher and thresholded by the env; regressing them
+    is what made the student swing on 74.6% of frames instead of 25%.
+    """
+    plain = nn.BCEWithLogitsLoss()
+    total = 0.0
+    for dim in BINARY_DIMS:
+        labels = (target[:, dim] > 0).float()
+        criterion = declare_bce if dim == DECLARE_INDEX else plain
+        total = total + criterion(out[:, dim], labels)
+    return total
+
+
 def load_dataset(path: Path) -> dict:
     blob = np.load(path)
-    return {k: blob[k] for k in ("pixels", "proprio", "actions", "on_policy")}
+    keys = [k for k in ("pixels", "proprio", "actions", "on_policy", "solved", "episode") if k in blob]
+    return {k: blob[k] for k in keys}
 
 
 def split_indices(n: int, val_fraction: float, rng: np.random.Generator):
@@ -50,7 +67,7 @@ def evaluate(model, data, idx, mean, std, pos_weight) -> dict:
 
         control_loss = mse(out[:, CONTINUOUS_DIMS], target[:, CONTINUOUS_DIMS])
         declare_target = (target[:, DECLARE_INDEX] > 0).float()
-        declare_loss = bce(out[:, DECLARE_INDEX], declare_target)
+        declare_loss = binary_loss(out, target, bce)
 
         predicted = (torch.sigmoid(out[:, DECLARE_INDEX]) > 0.5).float()
         true_pos = float(((predicted == 1) & (declare_target == 1)).sum())
@@ -101,14 +118,36 @@ def main() -> None:
     parser.add_argument("--val-fraction", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-pos-weight", type=float, default=20.0)
+    parser.add_argument(
+        "--overfit-episodes",
+        type=int,
+        default=0,
+        help="Sanity check: train on this many episodes only, expecting loss -> 0.",
+    )
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
 
     data = load_dataset(args.dataset)
+
+    if args.overfit_episodes:
+        # Sanity check: a model this size must be able to memorise a couple of episodes.
+        # If the loss does not collapse to ~0 here, the bug is in the pipeline (labels,
+        # loss, or normalisation), not in the amount of data.
+        episodes = data.get("episode")
+        if episodes is None:
+            raise SystemExit("dataset has no episode index; recollect to use --overfit-episodes")
+        keep = np.isin(episodes, np.unique(episodes)[: args.overfit_episodes])
+        data = {k: v[keep] for k, v in data.items()}
+        print(f"OVERFIT MODE: {int(keep.sum())} samples from {args.overfit_episodes} episodes")
+
     n = len(data["actions"])
-    train_idx, val_idx = split_indices(n, args.val_fraction, rng)
+    if args.overfit_episodes:
+        # Train and evaluate on the same samples: we want memorisation, not generalisation.
+        train_idx = val_idx = np.arange(n)
+    else:
+        train_idx, val_idx = split_indices(n, args.val_fraction, rng)
     mean, std = normalizer(data["proprio"][train_idx])
 
     # Declares are ~1 step per episode out of ~100, so without a positive weight the
@@ -124,6 +163,12 @@ def main() -> None:
 
     model = PixelStudent()
     optimiser = torch.optim.Adam(model.parameters(), lr=args.lr)
+    # Anneal to a small fraction of the initial rate. Without this the loss plateaus at
+    # the step size rather than the optimum - the overfit check stalled around 3e-4 at a
+    # fixed 1e-3 purely because the updates could not get finer.
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimiser, T_max=args.epochs, eta_min=args.lr * 0.001
+    )
     mse = nn.MSELoss()
     bce = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight))
 
@@ -156,7 +201,7 @@ def main() -> None:
 
             out = model(pixels, proprio)
             control_loss = mse(out[:, CONTINUOUS_DIMS], target[:, CONTINUOUS_DIMS])
-            declare_loss = bce(out[:, DECLARE_INDEX], (target[:, DECLARE_INDEX] > 0).float())
+            declare_loss = binary_loss(out, target, bce)
             loss = control_loss + declare_loss
 
             optimiser.zero_grad()
@@ -164,6 +209,7 @@ def main() -> None:
             optimiser.step()
             totals.append(float(loss))
 
+        scheduler.step()
         metrics = evaluate(model, data, val_idx, mean, std, pos_weight)
         metrics.update(epoch=epoch, train_loss=float(np.mean(totals)))
         history.append(metrics)
