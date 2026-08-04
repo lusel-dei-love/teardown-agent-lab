@@ -113,11 +113,15 @@ def load_cosmos_edge(device: str = "cuda") -> HFChatResponder:
     return HFChatResponder(COSMOS_REPO, device=device)
 
 
-def load_molmoact2(device: str = "cuda", load_in_4bit: bool = True) -> HFChatResponder:
+def load_molmoact2(device: str = "cuda", load_in_4bit: bool = False) -> HFChatResponder:
     """Ai2 MolmoAct 2, the VLA side of the comparison.
 
     Driven as a VLM: its action head needs a robot joint-state vector and one of a closed
     set of normalisation tags, neither of which exists for a game.
+
+    bf16 by default: it fits a 24 GB card at 10.9 GB, and the 4-bit path fed the vision
+    tower uint8 tensors ("LayerNormKernelImpl not implemented for Byte"). Only quantise
+    if something else is occupying the GPU.
     """
     return HFChatResponder(MOLMOACT_REPO, device=device, load_in_4bit=load_in_4bit)
 

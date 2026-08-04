@@ -1,0 +1,56 @@
+<!-- ABOUTME: Where the project stands and what to do next, written to survive the -->
+<!-- ABOUTME: Ubuntu 22.04 -> 24.04 upgrade and any interrupted session. -->
+
+# Resume here
+
+## State (2026-08-04)
+
+Working:
+- **Trained pixel student: 50-60% success vs 10% random.** Checkpoints in
+  `runs/student_pitch/`. Observation is pixels + own proprioception only; no privileged
+  state ever reaches the policy.
+- **MolmoAct 2 (VLA) baseline runs**, bf16 on the 4090, 10.9 GB, ~1.3 s per decision.
+- Harness: bridge, uinput actuator, supervisor, DAgger, fixed eval protocol. 90 tests.
+
+## After the 24.04 upgrade, check these first
+
+1. **X display number moves** (`ls /tmp/.X11-unix/`); everything resolves it at runtime
+   via `teardown_lab.xdisplay.detect_display`, overridable with `GAME_DISPLAY`.
+2. **Display output must be CONNECTED** or the game starts and never maps a window
+   (`nvidia-smi --query-gpu=display_active`). The forcing config is
+   `/etc/X11/xorg.conf.d/10-headless-nvidia.conf`; see `~/Setup/docs/headless-display-fix.md`.
+3. **torch is pinned to cu126** in `pyproject.toml`. Driver >= 570 (which 24.04 brings)
+   still runs cu126 fine - CUDA minor versions are forward compatible - so nothing needs
+   changing. Only revisit if you want cu128+.
+4. `~/42/FlowAI` `flowai-live.service` was **stopped and disabled** on Louis's say-so; it
+   held 13.6 GB of VRAM. Re-enable with
+   `systemctl --user enable --now flowai-live.service` when the GPU is free again.
+5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
+
+## Next steps, in order
+
+1. **Cosmos 3 Edge baseline is blocked on transformers.** Its `model_type` is
+   `cosmos3_edge`, absent from transformers 5.14.1 (current release), and the checkpoint
+   ships neither an `auto_map` nor modeling code - unlike MolmoAct 2, which ships both.
+   Needs `pip install git+https://github.com/huggingface/transformers`. Do this in a
+   throwaway venv first: it can break the working MolmoAct 2 path.
+2. **Calibrate the student's declare head on rollouts**, not the offline split. It is
+   bimodal: at the tuned threshold it fires within ~16 steps and drops success to 10%; at
+   0.995 with 4-frame hysteresis it never fires (60%). Sweep the threshold live.
+3. **Rebuild the showcase** (deploy target lives in the gitignored `.envrc`, see
+   `.envrc.example`) with the real comparison: random vs
+   student stages vs MolmoAct 2 vs Cosmos, with videos per policy.
+
+## Reproducing
+
+```bash
+uv sync --extra gui --extra train --extra baselines
+uv run pytest -q                                     # 90 tests, no game needed
+DISPLAY=:0 uv run python -m teardown_lab.collect --episodes 200 --out runs/x.npz
+uv run python -m teardown_lab.train_student --dataset runs/x.npz --out-dir runs/y
+DISPLAY=:0 uv run python -m teardown_lab.eval_student --stages runs/y
+DISPLAY=:0 HF_HUB_OFFLINE=1 uv run python -m teardown_lab.baselines.run --model molmoact2
+```
+
+Long runs checkpoint and self-heal: collection saves every N episodes and restarts the
+game on a crash (`teardown_lab.supervisor.ensure_playable`, dead -> playable in ~76 s).

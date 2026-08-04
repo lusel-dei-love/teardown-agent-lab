@@ -20,6 +20,12 @@ local RESET_FILE = "MOD/reset.txt"
 -- run must periodically restore the terrain or its later data is measuring a different
 -- task than its earlier data.
 local HARD_RESET_FILE = "MOD/hardreset.txt"
+-- Slow the game clock while a slow model is driving. A VLA needs ~1.4 s per decision
+-- while the control loop assumes 10 Hz, so without this the world runs ~14x further
+-- between actions than the policy expects and we would be measuring reaction speed
+-- rather than decision quality. The factor is reported alongside any result.
+local SLOWMO_FILE = "MOD/slowmo.txt"
+local SLOWMO_SCALE = 0.1
 
 -- Registry keys. The engine rewrites these under savegame.mod.local-<modfolder>.
 local STATE_KEY = "savegame.mod.state"
@@ -218,6 +224,8 @@ function tick()
 		Restart()
 		return
 	end
+
+	SetTimeScale(HasFile(SLOWMO_FILE) and SLOWMO_SCALE or 1.0)
 
 	local want_reset = HasFile(RESET_FILE)
 	if want_reset and not reset_seen and phase == PHASE_LIVE then

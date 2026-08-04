@@ -68,6 +68,19 @@
       mean episode length 18.8 -> 61.9 steps
 - [x] BUT live success still 0/10, and 0/10 with the declare head disabled over full
       200-step episodes - so it is not a declare head gating a competent policy
+## M3 — baselines (2026-08-04)
+- [x] GPU unblocked: torch pinned to cu126 (default CUDA 13 wheels refuse driver 565)
+- [x] shared text-action protocol: one prompt, one parser, one action vector, one
+      actuator for VLA, world model and student alike
+- [x] slow-mo (SetTimeScale) so a ~1.3 s/decision model is judged on decisions, not speed
+- [x] **MolmoAct 2 (VLA): 0-20% success, 0% parse failures, but only 2 DISTINCT replies
+      in 120 decisions** - a constant "walk forward and swing", not perception
+- [ ] **Cosmos 3 Edge (world model): BLOCKED.** model_type cosmos3_edge is absent from
+      transformers 5.14.1 and the checkpoint ships no auto_map and no modeling code
+      (MolmoAct 2 ships both). Needs transformers from git main - try it in a throwaway
+      venv first, it can break the working MolmoAct 2 path.
+- [ ] showcase page: random vs student stages vs MolmoAct 2 vs Cosmos, with videos
+
 ## M1f — WORKING POLICY (2026-08-04)
 - [x] measured the real observation problem: target inside the 90 deg frustum in only
       20.4% of frames, because the teacher never pitched and the tower drops below the

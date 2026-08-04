@@ -15,6 +15,7 @@ MODS_REL = "drive_c/users/steamuser/Documents/Teardown/mods"
 
 RESET_FILE = "reset.txt"
 HARD_RESET_FILE = "hardreset.txt"
+SLOWMO_FILE = "slowmo.txt"
 
 
 class RealBridge:
@@ -155,6 +156,15 @@ class RealBridge:
             self._sleep(0.25)
         return None
 
+    def set_slowmo(self, enabled: bool) -> None:
+        """Slow the game clock, for policies far slower than the 10 Hz control loop."""
+        path = self.mod_dir / SLOWMO_FILE
+        if enabled:
+            path.write_text("1", encoding="utf-8")
+        else:
+            path.unlink(missing_ok=True)
+
     def close(self) -> None:
         (self.mod_dir / RESET_FILE).unlink(missing_ok=True)
         (self.mod_dir / HARD_RESET_FILE).unlink(missing_ok=True)
+        (self.mod_dir / SLOWMO_FILE).unlink(missing_ok=True)
