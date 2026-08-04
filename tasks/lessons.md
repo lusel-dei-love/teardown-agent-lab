@@ -29,6 +29,15 @@
   authoritative (it also proved `Spawn()` exists despite the modding page saying runtime
   spawning is impossible). `IsBodyHandle` was invented from a plausible guess and does
   not exist - grep `script_defs.lua` for every symbol before writing Lua.
+- **2026-08-04, check what the demonstrations actually SHOW before scaling anything.**
+  Four rounds went into the model - loss functions, DAgger, more data - while the real
+  defect was that the teacher never pitched, so the target was in frame for only 20% of
+  demonstration frames. Fixing the teacher's camera took the student from 0/10 to 5/10.
+  Measure the observation against ground truth early; a demonstrator that cannot see the
+  target teaches a student to guess.
+- **2026-08-04, verify a fix on a short run before paying for a long one.** Lowering the
+  look gain was a plausible fix that measured WORSE (0.127 vs 0.204 target visibility).
+  A 3-minute live check caught it before a 45-minute recollection.
 - **2026-08-04, run the overfit check FIRST.** Two episodes, train on what you score,
   expect the loss at its floor. It took ~20 min and settled in one shot whether three
   failed evaluations were a pipeline bug or a generalisation problem - a question I had

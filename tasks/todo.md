@@ -68,7 +68,25 @@
       mean episode length 18.8 -> 61.9 steps
 - [x] BUT live success still 0/10, and 0/10 with the declare head disabled over full
       200-step episodes - so it is not a declare head gating a competent policy
-- [ ] **NEXT: perception, not optimisation or data volume.** The overfit check reached
+## M1f — WORKING POLICY (2026-08-04)
+- [x] measured the real observation problem: target inside the 90 deg frustum in only
+      20.4% of frames, because the teacher never pitched and the tower drops below the
+      view as it closes in
+- [x] teacher now aims pitch -> target on screen 0.675, teacher success 73-87%,
+      episodes ~29 steps instead of ~165
+- [x] frames raised to 224x126
+- [x] tried and REJECTED: look_scale 200 -> 80. Measured worse (0.127 visible); finer
+      steps just spend more frames mid-turn
+- [x] recollected 187 episodes / 18676 samples, retrained: val control_mse 0.0583 (best
+      ever; DAgger was 0.0695, BC 0.0842)
+- [x] **live: 50-60% success vs 10% random.** Same declare-disabled test scored 0/10 for
+      both the earlier BC and DAgger models
+- [ ] **NEXT: calibrate the declare head on rollouts, not on the offline split.** It is
+      bimodal - at the tuned threshold it fires within ~16 steps and ends episodes early
+      (success drops to 10%); at 0.995 with 4-frame hysteresis it never fires. Sweep the
+      threshold against live rollouts and pick the operating point that maximises
+      success while keeping false declarations near zero.
+- [ ] (resolved) perception, not optimisation or data volume The overfit check reached
       3.18e-05 on 2 episodes, so the model fits what it sees; held-out control_mse
       plateaus near 0.07, so it cannot predict the teacher's action from an unseen
       128x72 frame. The teacher reads exact 3D block positions; the student gets a
