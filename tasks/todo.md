@@ -46,7 +46,26 @@
       random 12.5% | stage_000 0% | stage_025 0% | stage_050 12.5% | stage_100 12.5%
       and with declare disabled entirely, stage_100 scores 0/8 -- so the CONTROL policy
       has not learned the task either; it is not merely a broken declare head.
-- [ ] **NEXT, with evidence: binary actions are being trained as regression.**
+## M1d — binary heads fixed, overfit check passed (2026-08-04)
+- [x] grab/swing/declare now BCE classification heads, thresholded on probability
+- [x] cosine LR annealing (a fixed 1e-3 floored the overfit loss at 3e-4)
+- [x] datasets carry a per-sample episode index
+- [x] **overfit sanity check PASSES**: 2 seeded episodes / 208 samples ->
+      control_mse 1.42e-05, declare_bce 1.62e-05, total 3.18e-05, declare P=R=1.00.
+      All 208 observations unique, zero conflicting labels. So the pipeline (labels,
+      loss, normalisation, capacity) is sound; the residual is BCE's asymptote.
+- [x] retrained on 200 episodes and evaluated live: the pathology is fixed but the
+      policy is not. Live swing rate 74.6% -> 5.1% (teacher 0.25), success still 12.5%,
+      i.e. random. It now UNDER-swings: a classifier trained on 25% positives that fires
+      5% of the time on its own trajectories is predicting the majority class on frames
+      it never saw.
+- [ ] **NEXT: this is compounding error / distribution shift, not a loss bug.**
+      Collection only approximates DAgger - 5% of samples come from random scrambles,
+      and none from the STUDENT's own state distribution. Real DAgger: roll out the
+      current student, label the states IT visits with the privileged teacher, append,
+      retrain, repeat. Everything needed is already in place (teacher is queryable at
+      any state, collection loop and checkpointing exist); it is a loop around them.
+- [x] (resolved) binary actions were being trained as regression.
       The teacher's `swing` is binary and on for 25% of frames. MSE drives the student to
       output ~0.25 everywhere, and the env thresholds `swing = vec[5] > 0`, so the student
       swings on 74.6% of frames - flailing instead of approaching and striking.

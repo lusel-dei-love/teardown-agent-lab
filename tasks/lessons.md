@@ -29,6 +29,11 @@
   authoritative (it also proved `Spawn()` exists despite the modding page saying runtime
   spawning is impossible). `IsBodyHandle` was invented from a plausible guess and does
   not exist - grep `script_defs.lua` for every symbol before writing Lua.
+- **2026-08-04, run the overfit check FIRST.** Two episodes, train on what you score,
+  expect the loss at its floor. It took ~20 min and settled in one shot whether three
+  failed evaluations were a pipeline bug or a generalisation problem - a question I had
+  been answering by guessing and re-running expensive collections. Do this before
+  collecting more data, never after.
 - **2026-08-04, never regress a binary action with MSE.** The teacher's `swing` is 0/1
   and on 25% of the time; MSE drove the student to ~0.25 everywhere, and because the env
   thresholds `swing > 0` that became "swing on 75% of frames". The behaviour looked like
