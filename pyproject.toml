@@ -11,16 +11,17 @@ train = ["torch>=2.7,<2.8"]
 [dependency-groups]
 dev = ["pytest>=8"]
 
-# CPU wheels on purpose. This machine's NVIDIA driver (565) predates the CUDA 13 wheels
-# torch now ships by default, and forcing older CUDA builds left a stale libtorch_cuda.so
-# that broke importing torch at all. The student is a small CNN over a few thousand
-# 128x72 frames, so CPU is adequate; revisit if the driver is upgraded past 570.
+# CUDA 12.6 wheels. The driver here is 565, which speaks CUDA 12.7, so the CUDA 13
+# wheels torch now ships by default refuse to initialise ("driver too old"). Pin the
+# cu126 index instead of letting the default resolve. The VLA/world-model baselines are
+# 4-5B parameter models - CPU inference is not viable for them, unlike the small student
+# CNN. Revisit after the 24.04 upgrade brings driver >= 570.
 [tool.uv.sources]
-torch = { index = "pytorch-cpu" }
+torch = { index = "pytorch-cu126" }
 
 [[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
 explicit = true
 
 [tool.pytest.ini_options]
