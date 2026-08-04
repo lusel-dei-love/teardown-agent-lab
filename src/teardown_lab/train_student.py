@@ -108,6 +108,62 @@ def tune_declare_threshold(model, data, idx, mean, std) -> float:
     return best
 
 
+def fit(
+    model,
+    data: dict,
+    train_idx,
+    val_idx,
+    mean,
+    std,
+    *,
+    epochs: int,
+    lr: float,
+    batch_size: int,
+    pos_weight: float,
+    rng,
+    on_epoch=None,
+) -> list[dict]:
+    """Train `model` in place; returns the per-epoch metric history.
+
+    Shared by the one-shot trainer and the DAgger loop, so both use exactly the same
+    losses, annealing and metrics - a divergence there would make their numbers
+    incomparable.
+    """
+    optimiser = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimiser, T_max=max(epochs, 1), eta_min=lr * 0.001
+    )
+    mse = nn.MSELoss()
+    bce = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight))
+
+    history = []
+    for epoch in range(1, epochs + 1):
+        totals = []
+        for batch in batches(train_idx, batch_size, rng):
+            pixels = preprocess_pixels(data["pixels"][batch])
+            proprio = torch.from_numpy(
+                ((data["proprio"][batch] - mean) / std).astype(np.float32)
+            )
+            target = torch.from_numpy(data["actions"][batch])
+
+            out = model(pixels, proprio)
+            loss = mse(out[:, CONTINUOUS_DIMS], target[:, CONTINUOUS_DIMS]) + binary_loss(
+                out, target, bce
+            )
+            optimiser.zero_grad()
+            loss.backward()
+            optimiser.step()
+            totals.append(float(loss))
+
+        scheduler.step()
+        metrics = evaluate(model, data, val_idx, mean, std, pos_weight)
+        metrics.update(epoch=epoch, train_loss=float(np.mean(totals)))
+        history.append(metrics)
+        if on_epoch:
+            on_epoch(metrics)
+    return history
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the pixel student.")
     parser.add_argument("--dataset", type=Path, default=Path("runs/teacher_dataset.npz"))

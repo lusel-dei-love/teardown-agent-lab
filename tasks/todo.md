@@ -59,7 +59,24 @@
       i.e. random. It now UNDER-swings: a classifier trained on 25% positives that fires
       5% of the time on its own trajectories is predicting the majority class on frames
       it never saw.
-- [ ] **NEXT: this is compounding error / distribution shift, not a loss bug.**
+## M1e — DAgger (2026-08-04)
+- [x] DAgger loop: roll out student, label visited states with the teacher, aggregate,
+      retrain, beta decay 0.50/0.25/0.12; 3 iterations x 25 episodes
+- [x] every training metric improved monotonically: control_mse 0.0771 -> 0.0695,
+      declare precision 0.25 -> 0.39 -> 0.52 (plain BC was 0.17)
+- [x] live calibration fixed: swing fraction BC 0.207 -> DAgger 0.276 (teacher 0.25);
+      mean episode length 18.8 -> 61.9 steps
+- [x] BUT live success still 0/10, and 0/10 with the declare head disabled over full
+      200-step episodes - so it is not a declare head gating a competent policy
+- [ ] **NEXT: perception, not optimisation or data volume.** The overfit check reached
+      3.18e-05 on 2 episodes, so the model fits what it sees; held-out control_mse
+      plateaus near 0.07, so it cannot predict the teacher's action from an unseen
+      128x72 frame. The teacher reads exact 3D block positions; the student gets a
+      heavily downsampled image of a 1600x900 screen. Try in order:
+      1. higher-resolution or cropped frames (the tower occupies few pixels at 128x72)
+      2. frame stacking (a single frame carries no motion)
+      3. a larger visual encoder
+- [ ] (superseded) compounding error / distribution shift
       Collection only approximates DAgger - 5% of samples come from random scrambles,
       and none from the STUDENT's own state distribution. Real DAgger: roll out the
       current student, label the states IT visits with the privileged teacher, append,
