@@ -27,33 +27,37 @@ Working:
    `systemctl --user enable --now flowai-live.service` when the GPU is free again.
 5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
 
-## BLOCKED: reboot required - NVIDIA driver half-upgraded (2026-08-05 11:37)
+## BLOCKED: Steam needs unprivileged user namespaces (2026-08-05)
 
-`apt install -y nvidia-driver-570` ran at 11:35-11:37 and swapped the driver under the
-running system. The state is now inconsistent and NOTHING GPU works until a reboot:
+Rebooted 2026-08-05 17:2x. The driver is now healthy - `nvidia-smi` reports **570.211.01**
+on the RTX 4090, no mismatch, and torch sees CUDA. The flatpak GL extensions for
+`nvidia-570-211-01` (GL and GL32) are installed alongside the old 565 pair. Session
+unlocks with `~/Setup/scripts/unlock-session.sh`.
 
-- loaded kernel module: **565.57.01** (`/proc/driver/nvidia/version`)
-- installed userspace / NVML: **570.211**
-- `nvidia-smi` fails: `Failed to initialize NVML: Driver/library version mismatch`
+Steam still refuses to start. Its log ends with:
 
-This is what broke Steam mid-session: it launched and played fine at 10:57, then every
-relaunch from ~11:43 failed. Do not chase the symptoms - a user-namespace error surfaces
-in Steam's log (`kernel.apparmor_restrict_unprivileged_userns = 1`), but userns worked at
-10:57 under the same setting, so treat it as downstream of the driver swap and re-test it
-only AFTER rebooting.
+    Error: The unofficial Steam Flatpak app now requires user namespaces to be enabled.
 
-**Reboot, then in order:**
-1. `nvidia-smi` must report 570.211.01 with no mismatch.
-2. `flatpak update --user` - the installed GL extensions are pinned to
-   `nvidia-565-57-01`; the 570 driver needs the matching `nvidia-570-211-01` pair
-   (`GL` and `GL32`), or the game gets software rendering or fails outright.
-3. Re-test Steam per the Flatpak section below; only if it still reports user namespaces
-   consider `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` (relaxes a
-   24.04 hardening default - prefer `sudo systemctl reload apparmor` first).
-4. **Sunshine can now be un-pinned**: the global CLAUDE.md pins it to v2025.628.4510
-   until the driver is >= 570. That condition is now met, so NVENC on a newer Sunshine
-   is available - see `check-streaming-stack.sh`.
-5. torch stays on cu126; CUDA minor versions are forward compatible with 570.
+`kernel.apparmor_restrict_unprivileged_userns = 1`. This is NOT downstream of the driver
+swap - it survives the reboot. The likely trigger is that the
+`apt install -y nvidia-driver-570` transaction at 11:35 reloaded AppArmor profiles:
+flatpak Steam played fine at 10:57 and has failed every launch since, and a reboot cannot
+undo it because the profiles are installed. Do not test this with a bare `unshare` from a
+shell - that is the unconfined path and is denied even when flatpak's own bwrap is
+permitted; the authoritative signal is Steam's own log.
+
+**Needs one root command (Louis):**
+
+```bash
+sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0          # this boot
+echo 'kernel.apparmor_restrict_unprivileged_userns=0' | \
+  sudo tee /etc/sysctl.d/60-flatpak-userns.conf                        # persist
+```
+
+This relaxes a 24.04 hardening default that limits unprivileged user namespaces. It is
+the documented fix for Steam-on-Flatpak here and is reversible by deleting that file.
+After it, resume at the Flatpak section below - the mod still has to be enabled once in
+Play > Mod manager, where it now appears under "Local files".
 
 ## Steam runs via FLATPAK now (2026-08-05)
 
