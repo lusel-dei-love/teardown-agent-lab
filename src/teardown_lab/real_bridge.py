@@ -3,13 +3,38 @@
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 
 from teardown_lab.savegame import PayloadError, extract_payload, parse_payload
 from teardown_lab.state import GameState
 
-DEFAULT_PREFIX = Path.home() / ".steam/steam/steamapps/compatdata/1167630/pfx"
+PREFIX_ENV = "TEARDOWN_PREFIX"
+
+# Teardown's Proton prefix moves with how Steam was installed. The packaged client keeps
+# it under ~/.steam; the Flatpak client sandboxes it under ~/.var/app. Probing beats
+# hardcoding either, because which one exists is a property of the machine, not the code.
+PREFIX_CANDIDATES = (
+    Path.home() / ".steam/steam/steamapps/compatdata/1167630/pfx",
+    Path.home()
+    / ".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/compatdata/1167630/pfx",
+)
+
+
+def default_prefix() -> Path:
+    """Teardown's Proton prefix: an explicit override, else the first layout present.
+
+    Falls back to the packaged-Steam path so the error a caller sees names a real
+    location rather than an empty Optional.
+    """
+    override = os.environ.get(PREFIX_ENV)
+    if override:
+        return Path(override)
+    for candidate in PREFIX_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    return PREFIX_CANDIDATES[0]
 SAVEGAME_REL = "drive_c/users/steamuser/AppData/Local/Teardown/savegame.xml"
 MODS_REL = "drive_c/users/steamuser/Documents/Teardown/mods"
 
@@ -36,7 +61,7 @@ class RealBridge:
         poll_interval: float = 0.005,
         sleeper=time.sleep,
     ):
-        prefix = prefix or DEFAULT_PREFIX
+        prefix = prefix or default_prefix()
         self.mod = mod
         self.savegame = savegame or (prefix / SAVEGAME_REL)
         self.mod_dir = mod_dir or (prefix / MODS_REL / mod)
