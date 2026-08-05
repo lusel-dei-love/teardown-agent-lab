@@ -35,24 +35,43 @@ The dist-upgrade REMOVED the steam package (`dpkg -l | grep steam` is empty,
 up-to-date!") and stays alive in the foreground, but no client process persists when
 detached, so nothing can launch the game.
 
-**Diagnosed 2026-08-05: `steam-installer` cannot be installed on this machine.**
-The amd64 graphics stack is healthy (libegl-mesa0, libglx0, mesa-libgallium all
-installed at 25.2.8). The blocker is Ubuntu Pro / ESM: `libqt5gui5t64` is installed at
-`5.15.13+dfsg-1ubuntu1+esm1`, an ESM build, and ESM repos are amd64-only. Steam's .deb
-needs i386 multiarch, so every i386 package whose amd64 partner is pinned to an ESM
-version is unsatisfiable - the error surfaces far downstream as
-`mesa-libgallium:i386 : Depends: libllvm20:i386 but it is not installable`.
+**Diagnosed 2026-08-05. Do NOT try to apt-install the i386 stack. It is not survivable.**
 
-Three ways forward, best first:
-1. **Make the existing user-space Steam persist.** `~/.steam/steam/steam.sh` bootstraps
-   fine and survives in the foreground but dies when detached; the 4.4 GB game install
-   is already there. Worth one debugging pass (run it under `setsid` with a pty, or as a
-   `systemctl --user` unit) before touching packages.
-2. **Flatpak Steam** - self-contained, immune to multiarch and ESM entirely:
-   `sudo apt install flatpak && flatpak install flathub com.valvesoftware.Steam`.
-   Costs a 4.4 GB re-download of Teardown into the flatpak sandbox.
-3. Detach the affected packages from ESM (`sudo pro fix` / disabling esm-apps), which
-   trades a working Steam for losing ESM security updates - not recommended.
+Steam's own log (`~/.steam/steam/logs/console-linux.txt`) gives the real error, which the
+apt output buries:
+
+    Error: You are missing the following 32-bit libraries, and Steam may not run:
+    libGL.so.1
+    libdrm.so.2
+
+The dist-upgrade dropped the i386 GL libraries. They cannot be put back:
+
+- `libdrm2:i386` alone installs cleanly, so i386 multiarch itself is healthy.
+- `libgl1:i386` fails outright; `libglx0:i386` appears to succeed, but only because apt
+  satisfies it by REMOVING 146 packages - including `gdm3`, `gnome-shell`,
+  `xserver-xorg-video-all`, `libegl-mesa0` and the whole `cuda-toolkit-12-2`. On a
+  headless machine with no physical access that ends both the X session and the GPU
+  work. Always check `apt-get install -s ... | grep '^Remv'` before running an i386
+  install here; a resolver "success" is not a safe plan.
+
+Two earlier theories were WRONG and should not be revived: the amd64 graphics stack is
+healthy (libegl-mesa0/libglx0/mesa-libgallium all installed at matching versions), and
+ESM is not amd64-only (`libqt5widgets5t64:i386` exists at the same `+esm1` version).
+Nothing is in a broken dpkg state and nothing is held.
+
+**Use Flatpak Steam.** It ships its own 32-bit libraries and touches none of the host
+graphics stack, which is the only property that matters here:
+
+```bash
+sudo apt install flatpak && flatpak install -y flathub com.valvesoftware.Steam
+```
+
+Teardown is a Windows PE32+ binary run through Proton, so the Steam client stays on the
+critical path - launching the exe directly is not an option. Budget a 4.4 GB re-download
+into the sandbox. **The savegame bridge path moves** to
+`~/.var/app/com.valvesoftware.Steam/.local/share/Steam/...`; `teardown_lab.savegame`
+resolves it via `TEARDOWN_SAVEGAME`, so point that at the new location rather than
+hardcoding it, and re-run the mod-reload check below.
 
 Then re-verify: `uv run pytest -q`, then the strike check below.
 Everything else survived the upgrade cleanly: CUDA (cu126) still works, the xorg
