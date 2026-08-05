@@ -27,56 +27,56 @@ Working:
    `systemctl --user enable --now flowai-live.service` when the GPU is free again.
 5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
 
-## BLOCKED (2026-08-05): Steam does not survive the 24.04 upgrade
+## Steam runs via FLATPAK now (2026-08-05)
 
-The dist-upgrade REMOVED the steam package (`dpkg -l | grep steam` is empty,
-`/usr/games/steam` is gone) while leaving the user-space install at
-`~/.steam/steam/steam.sh`. That script bootstraps fine ("Steam runtime environment
-up-to-date!") and stays alive in the foreground, but no client process persists when
-detached, so nothing can launch the game.
+The 24.04 upgrade removed the steam package and dropped the i386 GL libraries
+(`libGL.so.1`, `libdrm.so.2` - see `~/.steam/debian-installation/logs/console-linux.txt`).
+They cannot be restored: `libgl1:i386` fails, and `libglx0:i386` only "resolves" because
+apt satisfies it by REMOVING 146 packages including `gdm3`, `gnome-shell`,
+`xserver-xorg-video-all` and `cuda-toolkit-12-2`. Always
+`apt-get install -s <pkg> | grep '^Remv'` before an i386 install here. Two theories
+recorded earlier were WRONG: the amd64 stack is healthy, and ESM is not amd64-only
+(`libqt5widgets5t64:i386` exists at the same `+esm1` version).
 
-**Diagnosed 2026-08-05. Do NOT try to apt-install the i386 stack. It is not survivable.**
-
-Steam's own log (`~/.steam/steam/logs/console-linux.txt`) gives the real error, which the
-apt output buries:
-
-    Error: You are missing the following 32-bit libraries, and Steam may not run:
-    libGL.so.1
-    libdrm.so.2
-
-The dist-upgrade dropped the i386 GL libraries. They cannot be put back:
-
-- `libdrm2:i386` alone installs cleanly, so i386 multiarch itself is healthy.
-- `libgl1:i386` fails outright; `libglx0:i386` appears to succeed, but only because apt
-  satisfies it by REMOVING 146 packages - including `gdm3`, `gnome-shell`,
-  `xserver-xorg-video-all`, `libegl-mesa0` and the whole `cuda-toolkit-12-2`. On a
-  headless machine with no physical access that ends both the X session and the GPU
-  work. Always check `apt-get install -s ... | grep '^Remv'` before running an i386
-  install here; a resolver "success" is not a safe plan.
-
-Two earlier theories were WRONG and should not be revived: the amd64 graphics stack is
-healthy (libegl-mesa0/libglx0/mesa-libgallium all installed at matching versions), and
-ESM is not amd64-only (`libqt5widgets5t64:i386` exists at the same `+esm1` version).
-Nothing is in a broken dpkg state and nothing is held.
-
-**Use Flatpak Steam.** It ships its own 32-bit libraries and touches none of the host
-graphics stack, which is the only property that matters here:
+Flatpak Steam ships its own 32-bit stack (`Compat.i386`, `GL32.nvidia-565-57-01` matches
+the host driver exactly) and touches no host package. Installed at USER scope - the
+`sudo apt install flatpak && flatpak install ...` one-liner fails with "Flatpak system
+operation Deploy not allowed for user" because sudo only covers the apt half:
 
 ```bash
-sudo apt install flatpak && flatpak install -y flathub com.valvesoftware.Steam
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user -y flathub com.valvesoftware.Steam
 ```
 
-Teardown is a Windows PE32+ binary run through Proton, so the Steam client stays on the
-critical path - launching the exe directly is not an option. Budget a 4.4 GB re-download
-into the sandbox. **The savegame bridge path moves** to
-`~/.var/app/com.valvesoftware.Steam/.local/share/Steam/...`; `teardown_lab.savegame`
-resolves it via `TEARDOWN_SAVEGAME`, so point that at the new location rather than
-hardcoding it, and re-run the mod-reload check below.
+It reuses the EXISTING 13 GB library, the Steam login and the installed mod - no
+re-download - via a symlink plus a filesystem grant:
 
-Then re-verify: `uv run pytest -q`, then the strike check below.
-Everything else survived the upgrade cleanly: CUDA (cu126) still works, the xorg
-drop-in still forces HDMI-0, 92 tests pass. Driver is STILL 565.57.01 - the upgrade did
-not cross 570 - so the Sunshine pin and the cu126 torch pin both stay as they are.
+```bash
+flatpak override --user --filesystem="$HOME/.steam" com.valvesoftware.Steam
+ln -s "$HOME/.steam/debian-installation" ~/.var/app/com.valvesoftware.Steam/.local/share/Steam
+```
+
+Do NOT also symlink `~/.var/app/com.valvesoftware.Steam/.steam`: the sandbox remaps
+`$HOME` onto the app dir, so that symlink points at itself and bwrap fails to
+bind-mount the real library.
+
+Launch (the client now SURVIVES detaching, which the packaged one did not):
+
+```bash
+setsid nohup flatpak run --env=DISPLAY=:0 com.valvesoftware.Steam -silent &
+setsid nohup flatpak run --env=DISPLAY=:0 com.valvesoftware.Steam steam://rungameid/1167630 &
+```
+
+`RealBridge` resolves the prefix at runtime (`default_prefix()`, `TEARDOWN_PREFIX`), so
+both Steam layouts work unchanged.
+
+**UNVERIFIED / next step:** Steam starts the game (reaper + pressure-vessel alive,
+console log adds processes for gameID 1167630) but **no X window had mapped after ~3
+min** and `wmctrl -l` listed nothing on `:0`. Check whether the session is still on `:0`
+(`ls /tmp/.X11-unix/`), whether the output is CONNECTED
+(`nvidia-smi --query-gpu=display_active --format=csv`), and whether this is just a slow
+first Proton run under the new flatpak runtime. Do not assume the flatpak move caused it -
+the "starts but never maps a window" failure predates it and is documented above.
 
 ## FIRST THING after the 24.04 upgrade
 
