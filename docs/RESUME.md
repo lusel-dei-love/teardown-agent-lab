@@ -27,6 +27,34 @@ Working:
    `systemctl --user enable --now flowai-live.service` when the GPU is free again.
 5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
 
+## BLOCKED: reboot required - NVIDIA driver half-upgraded (2026-08-05 11:37)
+
+`apt install -y nvidia-driver-570` ran at 11:35-11:37 and swapped the driver under the
+running system. The state is now inconsistent and NOTHING GPU works until a reboot:
+
+- loaded kernel module: **565.57.01** (`/proc/driver/nvidia/version`)
+- installed userspace / NVML: **570.211**
+- `nvidia-smi` fails: `Failed to initialize NVML: Driver/library version mismatch`
+
+This is what broke Steam mid-session: it launched and played fine at 10:57, then every
+relaunch from ~11:43 failed. Do not chase the symptoms - a user-namespace error surfaces
+in Steam's log (`kernel.apparmor_restrict_unprivileged_userns = 1`), but userns worked at
+10:57 under the same setting, so treat it as downstream of the driver swap and re-test it
+only AFTER rebooting.
+
+**Reboot, then in order:**
+1. `nvidia-smi` must report 570.211.01 with no mismatch.
+2. `flatpak update --user` - the installed GL extensions are pinned to
+   `nvidia-565-57-01`; the 570 driver needs the matching `nvidia-570-211-01` pair
+   (`GL` and `GL32`), or the game gets software rendering or fails outright.
+3. Re-test Steam per the Flatpak section below; only if it still reports user namespaces
+   consider `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` (relaxes a
+   24.04 hardening default - prefer `sudo systemctl reload apparmor` first).
+4. **Sunshine can now be un-pinned**: the global CLAUDE.md pins it to v2025.628.4510
+   until the driver is >= 570. That condition is now met, so NVENC on a newer Sunshine
+   is available - see `check-streaming-stack.sh`.
+5. torch stays on cu126; CUDA minor versions are forward compatible with 570.
+
 ## Steam runs via FLATPAK now (2026-08-05)
 
 The 24.04 upgrade removed the steam package and dropped the i386 GL libraries
