@@ -27,37 +27,46 @@ Working:
    `systemctl --user enable --now flowai-live.service` when the GPU is free again.
 5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
 
-## BLOCKED: Steam needs unprivileged user namespaces (2026-08-05)
+## BLOCKED: flatpak 1.14.6 is too old for Steam (2026-08-07)
 
-Rebooted 2026-08-05 17:2x. The driver is now healthy - `nvidia-smi` reports **570.211.01**
-on the RTX 4090, no mismatch, and torch sees CUDA. The flatpak GL extensions for
-`nvidia-570-211-01` (GL and GL32) are installed alongside the old 565 pair. Session
+Everything else is healthy: driver **580.178.04**, torch sees CUDA, the matching
+`nvidia-580-178-04` GL/GL32 flatpak extensions are installed, display `:0`, session
 unlocks with `~/Setup/scripts/unlock-session.sh`.
 
-Steam still refuses to start. Its log ends with:
+`kernel.apparmor_restrict_unprivileged_userns=0` is now set and persisted in
+`/etc/sysctl.d/60-flatpak-userns.conf`. That fixed userns ON THE HOST - a plain
+`unshare --user` succeeds. It is NOT sufficient, and this is the distinction that cost a
+lot of time:
 
-    Error: The unofficial Steam Flatpak app now requires user namespaces to be enabled.
-
-`kernel.apparmor_restrict_unprivileged_userns = 1`. This is NOT downstream of the driver
-swap - it survives the reboot. The likely trigger is that the
-`apt install -y nvidia-driver-570` transaction at 11:35 reloaded AppArmor profiles:
-flatpak Steam played fine at 10:57 and has failed every launch since, and a reboot cannot
-undo it because the profiles are installed. Do not test this with a bare `unshare` from a
-shell - that is the unconfined path and is denied even when flatpak's own bwrap is
-permitted; the authoritative signal is Steam's own log.
-
-**Needs one root command (Louis):**
-
-```bash
-sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0          # this boot
-echo 'kernel.apparmor_restrict_unprivileged_userns=0' | \
-  sudo tee /etc/sysctl.d/60-flatpak-userns.conf                        # persist
+```
+# host           -> works
+unshare --user --map-root-user true
+# inside sandbox -> "unshare failed: Operation not permitted"
+flatpak run --command=sh com.valvesoftware.Steam -c 'unshare --user --map-root-user true'
 ```
 
-This relaxes a 24.04 hardening default that limits unprivileged user namespaces. It is
-the documented fix for Steam-on-Flatpak here and is reversible by deleting that file.
-After it, resume at the Flatpak section below - the mod still has to be enabled once in
-Play > Mod manager, where it now appears under "Local files".
+Steam needs a NESTED user namespace inside the flatpak sandbox (pressure-vessel).
+Flatpak 1.14.6 - what noble ships, and noble-backports has nothing newer - blocks the
+`unshare` syscall in its seccomp filter. Nested userns support landed in the flatpak
+1.15 series. `features=devel` is already granted, so no permission toggle helps.
+
+Downgrading the Steam flatpak does NOT work - tried 1.0.0.84 (2025-10-02, the oldest
+build flathub still lists) and it fails identically. The app has been restored to latest
+and unmasked.
+
+**Needs root (Louis):**
+
+```bash
+sudo add-apt-repository -y ppa:flatpak/stable && sudo apt update && sudo apt install -y flatpak
+```
+
+Then verify `flatpak --version` >= 1.15, re-check the nested-userns one-liner above, and
+resume at the Flatpak section. The mod still needs enabling once in Play > Mod manager,
+where it now appears under "Local files".
+
+If the PPA is unwanted, the alternative is dropping Flatpak entirely and finding another
+way to supply the i386 GL libraries the packaged Steam needs - but note apt cannot
+install those without removing 146 packages (see below).
 
 ## Steam runs via FLATPAK now (2026-08-05)
 
