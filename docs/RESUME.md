@@ -27,46 +27,48 @@ Working:
    `systemctl --user enable --now flowai-live.service` when the GPU is free again.
 5. Sunshine can be un-pinned once the driver is >= 570 (see the global CLAUDE.md).
 
-## BLOCKED: flatpak 1.14.6 is too old for Steam (2026-08-07)
+## BLOCKED: flatpak portal broken after in-place upgrade (2026-08-07)
 
-Everything else is healthy: driver **580.178.04**, torch sees CUDA, the matching
-`nvidia-580-178-04` GL/GL32 flatpak extensions are installed, display `:0`, session
-unlocks with `~/Setup/scripts/unlock-session.sh`.
+Host is healthy: driver **580.178.04**, torch sees CUDA, matching `nvidia-580-178-04`
+GL/GL32 extensions, display `:0`, session unlocks with `~/Setup/scripts/unlock-session.sh`.
+`kernel.apparmor_restrict_unprivileged_userns=0` persisted in
+`/etc/sysctl.d/60-flatpak-userns.conf`. Flatpak upgraded to **1.16.6** from
+`ppa:flatpak/stable` (libflatpak0 and bubblewrap 0.11.0 match - the packages are
+consistent).
 
-`kernel.apparmor_restrict_unprivileged_userns=0` is now set and persisted in
-`/etc/sysctl.d/60-flatpak-userns.conf`. That fixed userns ON THE HOST - a plain
-`unshare --user` succeeds. It is NOT sufficient, and this is the distinction that cost a
-lot of time:
+Steam now gets further and fails differently:
 
-```
-# host           -> works
-unshare --user --map-root-user true
-# inside sandbox -> "unshare failed: Operation not permitted"
+    Error: The unofficial Steam Flatpak app requires a working D-Bus session bus
+    and flatpak-portal service.
+    $ flatpak run --command=bash com.valvesoftware.Steam -c 'flatpak-spawn -vv true'
+    Portal call failed: Failed to open file
+      "/run/user/1000/.flatpak/<id>-private/run-environ": No such file or directory
+
+`flatpak run` never creates the `<id>-private` directory that `flatpak-spawn` needs. Tried
+and did NOT fix it: clearing stale instance dirs under `/run/user/1000/.flatpak/`,
+`systemctl --user restart flatpak-session-helper flatpak-portal xdg-document-portal`,
+killing the helper and portal processes directly. Fails identically inside and outside
+the agent's Bash sandbox, so it is a host issue.
+
+**Next step: REBOOT.** Flatpak was upgraded in place while its services and the D-Bus
+session bus were live; the session bus dates from before the upgrade and cannot be
+restarted without ending the session. Restarting individual units is not equivalent.
+After reboot, check in order:
+
+```bash
+flatpak run --command=bash com.valvesoftware.Steam -c 'flatpak-spawn true && echo SPAWN_OK'
 flatpak run --command=sh com.valvesoftware.Steam -c 'unshare --user --map-root-user true'
 ```
 
-Steam needs a NESTED user namespace inside the flatpak sandbox (pressure-vessel).
-Flatpak 1.14.6 - what noble ships, and noble-backports has nothing newer - blocks the
-`unshare` syscall in its seccomp filter. Nested userns support landed in the flatpak
-1.15 series. `features=devel` is already granted, so no permission toggle helps.
+If `SPAWN_OK` prints, launch per the Flatpak section below. **Note the nested-userns test
+is a red herring on its own** - it was denied under 1.14.6 AND under 1.16.6, yet Steam's
+error moved on from userns to the portal, so do not treat that one-liner as the gate.
 
-Downgrading the Steam flatpak does NOT work - tried 1.0.0.84 (2025-10-02, the oldest
-build flathub still lists) and it fails identically. The app has been restored to latest
-and unmasked.
-
-**Needs root (Louis):**
-
-```bash
-sudo add-apt-repository -y ppa:flatpak/stable && sudo apt update && sudo apt install -y flatpak
-```
-
-Then verify `flatpak --version` >= 1.15, re-check the nested-userns one-liner above, and
-resume at the Flatpak section. The mod still needs enabling once in Play > Mod manager,
-where it now appears under "Local files".
-
-If the PPA is unwanted, the alternative is dropping Flatpak entirely and finding another
-way to supply the i386 GL libraries the packaged Steam needs - but note apt cannot
-install those without removing 146 packages (see below).
+If the portal is still broken after a reboot, stop pursuing Flatpak and reconsider:
+hand-staging the two i386 libraries the packaged Steam wants (`libGL.so.1`,
+`libdrm.so.2`) into a private prefix via `LD_LIBRARY_PATH`, extracted from .debs with
+`dpkg -x` so apt's resolver is never involved. Note NVIDIA's 32-bit GL comes from
+`libnvidia-gl-580:i386`, which would need staging too.
 
 ## Steam runs via FLATPAK now (2026-08-05)
 
